@@ -47,6 +47,27 @@ function CM_TESTS(F){
   t('Mehran: full house 5+5+5+4+3+3+3(contrast 300)+6 = 34 → Very high',
     F.mehran({hypotension:1,iabp:1,chf:1,age:80,anemia:1,diabetes:1,contrastML:300,dialysis:true}).category, 'Very high');
 
+  /* DyeVert determination */
+  t('DyeVert: eGFR 40 → Tier A mandatory', F.dyevert({egfr:40}).tier, 'A');
+  t('DyeVert: eGFR 50 + diabetes → Tier A', F.dyevert({egfr:50,diabetes:true}).tier, 'A');
+  t('DyeVert: eGFR 50, no diabetes → Tier B', F.dyevert({egfr:50,diabetes:false}).tier, 'B');
+  t('DyeVert: Mehran 11 → Tier A', F.dyevert({egfr:70,mehran:11}).tier, 'A');
+  t('DyeVert: Mehran 8 → Tier B', F.dyevert({egfr:70,mehran:8}).tier, 'B');
+  t('DyeVert: ratio 3.5 → Tier A', F.dyevert({egfr:70,ratio:3.5}).tier, 'A');
+  t('DyeVert: ratio 2.5 → Tier B', F.dyevert({egfr:70,ratio:2.5}).tier, 'B');
+  t('DyeVert: high-acuity (STEMI/shock) → Tier A', F.dyevert({egfr:80,highAcuity:true}).tier, 'A');
+  t('DyeVert: prior CI-AKI → Tier A', F.dyevert({egfr:80,priorCIAKI:true}).tier, 'A');
+  t('DyeVert: single kidney → Tier A', F.dyevert({egfr:80,singleKidney:true}).tier, 'A');
+  t('DyeVert: complex anatomy alone → Tier B', F.dyevert({egfr:80,complexAnatomy:true}).tier, 'B');
+  t('DyeVert: age 78 + diabetes → Tier B', F.dyevert({egfr:80,age:78,diabetes:true}).tier, 'B');
+  t('DyeVert: anemia + diabetes → Tier B', F.dyevert({egfr:80,anemia:true,diabetes:true}).tier, 'B');
+  t('DyeVert: anemia alone (no other factor) → Tier C', F.dyevert({egfr:80,anemia:true}).tier, 'C');
+  t('DyeVert: low-risk eGFR 70 non-diabetic → Tier C', F.dyevert({egfr:70,diabetes:false,mehran:3}).tier, 'C');
+  t('DyeVert: Tier A recommendation text', F.dyevert({egfr:40}).recommendation, 'Deploy DyeVert');
+  t('DyeVert: eGFR 44.9 → Tier A (boundary)', F.dyevert({egfr:44.9}).tier, 'A');
+  t('DyeVert: eGFR 45 non-diabetic → Tier B (boundary)', F.dyevert({egfr:45,diabetes:false}).tier, 'B');
+  t('DyeVert: A wins over B (eGFR 40 + complex)', F.dyevert({egfr:40,complexAnatomy:true}).tier, 'A');
+
   /* ACC CathPCI bleed — independent recomputation for one vignette:
      68y F, Hgb 11, BMI 27, eGFR 50, STEMI, no shock, no prior PCI */
   var x=-0.0884 + 0.0155*68 + 0.9327 + (-0.3474*11) + 0.4403 + (-0.04266*27) + 0.3346;

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>DyeVert determination · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card">
+    <h2>DyeVert determination</h2>
+    <p class="desc">Patient/case trigger for contrast reduction. Fires alongside the operator-outlier trigger — deploy when <b>either</b> fires. eGFR, age, Hgb and diabetes pull from the shared patient; Mehran is computed automatically.</p>
+
+    <div class="grid">
+      <div class="field"><label id="lblDm2">Diabetes</label><div class="seg" role="group" aria-labelledby="lblDm2" data-field="dDm"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblAcuity">High-acuity presentation <span class="hint">(STEMI / shock / decomp HF)</span></label><div class="seg" role="group" aria-labelledby="lblAcuity" data-field="dAcuity"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblPrior">Prior CI-AKI</label><div class="seg" role="group" aria-labelledby="lblPrior" data-field="dPrior"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblSingle">Single functioning kidney</label><div class="seg" role="group" aria-labelledby="lblSingle" data-field="dSingle"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblComplex">Complex / high-volume anatomy <span class="hint">(CTO, multivessel, bifurcation, staged)</span></label><div class="seg" role="group" aria-labelledby="lblComplex" data-field="dComplex"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label for="dPlanned">Planned contrast <span class="hint">(mL, for ratio — optional)</span></label><input id="dPlanned" type="number" inputmode="numeric" step="1" min="0" autocomplete="off" placeholder="e.g. 150"></div>
+    </div>
+
+    <div class="subsec">Determination</div>
+    <div class="hero">
+      <span class="chip neutral" id="dChip">—</span>
+      <span class="side" id="dRec">Enter patient data</span>
+    </div>
+    <div class="err" id="dErr"></div>
+
+    <div class="dual" style="margin-top:14px">
+      <div class="box"><div class="lab">eGFR (MDRD)</div><div class="big" style="font-size:1.35rem"><span id="dEgfr">—</span></div></div>
+      <div class="box"><div class="lab">Mehran</div><div class="big" style="font-size:1.35rem"><span id="dMehran">—</span> <span class="u" id="dMehranCat"></span></div></div>
+      <div class="box"><div class="lab">Contrast/eGFR ratio</div><div class="big" style="font-size:1.35rem"><span id="dRatio">—</span></div></div>
+    </div>
+
+    <div id="dTriggers" style="margin-top:14px"></div>
+
+    <div class="note">Tier A (mandatory, any one): eGFR &lt;45 · eGFR 45–59 + diabetes · Mehran ≥11 · contrast/eGFR &gt;3 · high-acuity presentation · prior CI-AKI or single kidney. Tier B (recommended): eGFR 45–59 without diabetes · Mehran 6–10 · complex anatomy · anemia + one factor · age &gt;75 + diabetes · ratio 2–3. Anemia = Hgb &lt;13 (M) / &lt;12 (F) from the shared patient.</div>
+    <div class="cite">Mehran R, J Am Coll Cardiol 2004 · Mehran-2, Lancet 2021 · Gurm HS contrast/CrCl ratio · REMEDIAL (ACS). Decision-support only — verify against local protocol.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$, card=document.querySelector('.card');
+function anemic(P){ if(P.hgb==null||!P.sex)return false; return P.sex==='F'?P.hgb<12:P.hgb<13; }
+function render(){
+  var P=CM.patient(), d=CM.derived(), used=CM.contrastUsed();
+  var eg=d.egfr;
+  // Mehran (same engine as the Mehran page; contrast from shared tracker)
+  var mr=null;
+  if(P.scr!=null||eg!=null||P.dial){
+    mr=CM.F.mehran({hypotension:false, iabp:false, chf:CM.segYes('dAcuity',card),
+      age:(P.age==null?0:P.age), anemia:anemic(P), diabetes:CM.segYes('dDm',card),
+      contrastML:used, scr:P.scr, egfr:eg, dialysis:P.dial});
+  }
+  // ratio from planned contrast
+  var planned=parseFloat($('dPlanned').value); if(isNaN(planned))planned=null;
+  var ratio=(planned!=null&&eg!=null&&eg>0)?planned/eg:null;
+
+  $('dEgfr').textContent=eg!=null?eg.toFixed(0):'—';
+  $('dMehran').textContent=mr?mr.score:'—';
+  $('dMehranCat').textContent=mr?('· '+mr.category):'';
+  $('dRatio').textContent=ratio!=null?ratio.toFixed(1):'—';
+
+  // dialysis: already maximal risk — treat as mandatory
+  if(P.dial){
+    setResult({tier:'A',category:'Mandatory',recommendation:'Deploy DyeVert',cls:'bad',
+      triggersA:['On dialysis / ESRD — minimize contrast per protocol'],triggersB:[]});
+    $('dErr').textContent=''; return;
+  }
+  if(eg==null){
+    $('dChip').className='chip neutral'; $('dChip').textContent='—';
+    $('dRec').textContent='Enter age, sex and creatinine'; $('dTriggers').innerHTML='';
+    $('dErr').textContent='eGFR needed — enter age, sex and creatinine in the patient panel.'; return;
+  }
+  $('dErr').textContent='';
+  var r=CM.F.dyevert({egfr:eg, diabetes:CM.segYes('dDm',card),
+    mehran:mr?mr.score:null, ratio:ratio, age:P.age,
+    anemia:anemic(P), complexAnatomy:CM.segYes('dComplex',card),
+    highAcuity:CM.segYes('dAcuity',card), priorCIAKI:CM.segYes('dPrior',card),
+    singleKidney:CM.segYes('dSingle',card)});
+  setResult(r);
+}
+function setResult(r){
+  var chip=$('dChip');
+  chip.className='chip '+r.cls; chip.textContent=r.category;
+  $('dRec').textContent=r.recommendation;
+  var h='';
+  if(r.triggersA.length){ h+='<div class="lab" style="margin-bottom:4px">Tier A — mandatory triggers</div><ul style="margin:0 0 10px 18px;padding:0">'+r.triggersA.map(function(x){return '<li>'+CM.esc(x)+'</li>';}).join('')+'</ul>'; }
+  if(r.triggersB.length){ h+='<div class="lab" style="margin-bottom:4px">Tier B — recommended triggers</div><ul style="margin:0 0 0 18px;padding:0">'+r.triggersB.map(function(x){return '<li>'+CM.esc(x)+'</li>';}).join('')+'</ul>'; }
+  if(!r.triggersA.length&&!r.triggersB.length){ h='<div class="lab">No patient/case triggers met. Consider the operator-outlier trigger independently.</div>'; }
+  $('dTriggers').innerHTML=h;
+  CM.announce('DyeVert '+r.category);
+}
+CM.init({title:'DyeVert determination', copy:function(){
+  var trg=$('dTriggers').textContent.replace(/\s+/g,' ').trim();
+  return 'Clara Maass CMC — DyeVert: '+$('dChip').textContent+' — '+$('dRec').textContent
+    +' (eGFR '+$('dEgfr').textContent+', Mehran '+$('dMehran').textContent
+    +', ratio '+$('dRatio').textContent+') '+trg+' ('+new Date().toLocaleString('en-US')+')';
+}, onClear:function(){ CM.resetSegs(card); $('dPlanned').value=''; render(); }});
+CM.wireSegs(card,function(){ render(); });
+$('dPlanned').addEventListener('input',render);
+CM.onChange(render); render();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /* Cath Lab Tools — service worker. Cache-first so the app is fully usable offline.
    Bump VERSION whenever any file changes. */
-var VERSION = 'cathlab-v3.0.0';
+var VERSION = 'cathlab-v3.1.0';
 var FILES = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ var FILES = [
   './calc/drugs.html',
   './calc/bleed-risk.html',
   './calc/mehran.html',
+  './calc/dyevert.html',
   './calc/timi.html',
   './calc/zwolle.html'
 ];

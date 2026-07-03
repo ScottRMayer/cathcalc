@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.0.0';
+CM.VERSION = '3.1.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -58,6 +58,51 @@ F.mehran = function(o){
   else {cat='Very high';cin='57.3%';dia='21.6%';cls='bad';}
   return {score:s,category:cat,cinRisk:cin,dialysisRisk:dia,cls:cls};
 };
+/* DyeVert deployment determination — pairs with operator-outlier targeting.
+   Patient/case triggers grouped into three tiers. Tier A = device mandatory
+   (any one fires); Tier B = recommended / operator discretion; Tier C = not
+   indicated by patient criteria. Thresholds anchored to the same guidance the
+   program deck cites (Mehran categories, eGFR/diabetes CA-AKI risk, Gurm
+   contrast/eGFR ratio). ratio = planned (or predicted) contrast mL ÷ eGFR.
+   anemia is passed in already resolved against sex (Hgb <13 M / <12 F). */
+F.dyevert = function(o){
+  o=o||{};
+  var eg=o.egfr, dm=!!o.diabetes, mehran=(o.mehran==null?null:o.mehran),
+      ratio=(o.ratio==null?null:o.ratio), A=[], B=[];
+  /* ---- Tier A: mandatory ---- */
+  if(o.priorCIAKI) A.push('Prior CI-AKI');
+  if(o.singleKidney) A.push('Single functioning kidney');
+  if(o.highAcuity) A.push('High-acuity presentation (STEMI / shock / decompensated HF)');
+  if(eg!=null && eg<45) A.push('eGFR <45 (CKD 3b–5)');
+  if(eg!=null && eg>=45 && eg<60 && dm) A.push('eGFR 45–59 with diabetes');
+  if(mehran!=null && mehran>=11) A.push('Mehran ≥11 (high / very high)');
+  if(ratio!=null && ratio>3.0) A.push('Predicted contrast/eGFR ratio >3.0');
+  /* ---- Tier B: recommended / discretion ---- */
+  /* count of other risk factors present, for the anemia-plus-one rule */
+  var others=0;
+  if(dm) others++;
+  if(o.age!=null && o.age>75) others++;
+  if(eg!=null && eg<60) others++;
+  if(o.complexAnatomy) others++;
+  if(mehran!=null && mehran>=6) others++;
+  if(o.highAcuity) others++;
+  if(eg!=null && eg>=45 && eg<60 && !dm) B.push('eGFR 45–59 without diabetes');
+  if(mehran!=null && mehran>=6 && mehran<=10) B.push('Mehran 6–10 (moderate)');
+  if(o.complexAnatomy) B.push('Anticipated complex / high-volume anatomy');
+  if(o.anemia && others>=1) B.push('Baseline anemia plus another risk factor');
+  if(o.age!=null && o.age>75 && dm) B.push('Age >75 with diabetes');
+  if(ratio!=null && ratio>=2.0 && ratio<=3.0) B.push('Predicted contrast/eGFR ratio 2.0–3.0');
+  if(A.length) return {tier:'A', mandatory:true,
+    recommendation:'Deploy DyeVert', category:'Mandatory',
+    triggersA:A, triggersB:B, cls:'bad'};
+  if(B.length) return {tier:'B', mandatory:false,
+    recommendation:'DyeVert recommended', category:'Recommended',
+    triggersA:A, triggersB:B, cls:'warn'};
+  return {tier:'C', mandatory:false,
+    recommendation:'Not indicated by patient criteria', category:'Not indicated',
+    triggersA:A, triggersB:B, cls:'good'};
+};
+
 /* Drug dosing (weight-based, renal-adjusted per label). */
 F.bivalirudin = function(kg,crcl,dial){ var r=1.75; if(dial)r=0.25; else if(crcl<30)r=1.0;
   return {bolus_mg:0.75*kg, rate:r, inf:r*kg}; };
@@ -239,6 +284,7 @@ var NAV = [
   ['Drugs','calc/drugs.html','dose'],
   ['Bleed','calc/bleed-risk.html','risk'],
   ['Mehran','calc/mehran.html','contrast'],
+  ['DyeVert','calc/dyevert.html','contrast'],
   ['TIMI','calc/timi.html','risk'],
   ['Zwolle','calc/zwolle.html','risk']
 ];
