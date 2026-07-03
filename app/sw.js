@@ -1,6 +1,6 @@
 /* Cath Lab Tools — service worker. Cache-first so the app is fully usable offline.
    Bump VERSION whenever any file changes. */
-var VERSION = 'cathlab-v2.3.1';
+var VERSION = 'cathlab-v2.3.2';
 var FILES = [
   './',
   './index.html',
