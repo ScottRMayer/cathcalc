@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '2.4.1';
+CM.VERSION = '3.0.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -254,8 +254,9 @@ var ECG_ONE='M5 33'+ecgSeg(0);
 var ECG_STRIP='M5 33'+[0,34,68,102].map(ecgSeg).join('');
 
 var LOGO = '<svg viewBox="0 0 44 44" width="44" height="44" role="img" aria-label="Clara Maass Medical Center">'
- +'<rect width="44" height="44" rx="10" fill="#00548b"/>'
- +'<text x="22" y="20.5" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-weight="800" font-size="11" letter-spacing="-0.3" fill="#ffffff">CMMC</text>'
+ +'<rect width="44" height="44" rx="10" fill="#ffffff"/>'
+ +'<rect x="0.5" y="0.5" width="43" height="43" rx="9.5" fill="none" stroke="#dde5ef"/>'
+ +'<text x="22" y="20.5" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-weight="800" font-size="11" letter-spacing="-0.3" fill="#00548b">CMMC</text>'
  +'<path d="'+ECG_ONE+'" fill="none" stroke="#d02b2e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function panelHTML(){
@@ -370,7 +371,7 @@ CM.init = function(opts){
     +'<a class="brandbar-main" href="'+(isHome?'#':ROOT+'index.html')+'">'
     +'<span class="brandmark">'+LOGO+'</span><span class="brandtext">'
     +'<span class="hosp">Clara Maass Medical Center</span>'
-    +'<span class="dept">Cardiac Catheterization Lab · Belleville, NJ</span></span></a>'
+    +'<span class="dept">Cardiac Catheterization Lab<span class="loc"> · Belleville, NJ</span></span></span></a>'
     +'<span class="brandbtns">'
     +(opts.copy?'<button class="btn" id="copyBtn" type="button">Copy</button>':'')
     +'<button class="btn" id="clearBtn" type="button">New patient</button></span></header>';
