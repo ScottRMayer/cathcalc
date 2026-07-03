@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '2.3.2';
+CM.VERSION = '2.4.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -165,8 +165,21 @@ CM.clearPatient = function(){ P=Object.assign({},BLANK); saveP(); CM.setContrast
 CM.contrastUsed = function(){ var v=parseFloat(sessionStorage.getItem('cmContrast')); return isNaN(v)?0:Math.max(0,v); };
 CM.setContrastUsed = function(v){ try{ sessionStorage.setItem('cmContrast',String(Math.max(0,v||0))); }catch(e){} notify(); };
 
-CM.units = function(){ return localStorage.getItem('cmUnits')==='si'?'si':'us'; };
-CM.setUnits = function(u){ try{ localStorage.setItem('cmUnits',u); }catch(e){} fillPanel(); notify(); };
+/* Two independent unit settings so labs can stay in the hospital's standard units
+   while weight/height are entered in metric (or any mix). Legacy 'cmUnits' migrates. */
+function migrateUnits(){
+  var legacy=localStorage.getItem('cmUnits');
+  if(legacy && !localStorage.getItem('cmUnitsBody')){
+    try{ localStorage.setItem('cmUnitsBody',legacy); localStorage.setItem('cmUnitsLab',legacy); }catch(e){}
+  }
+}
+migrateUnits();
+CM.unitsBody = function(){ return localStorage.getItem('cmUnitsBody')==='si'?'si':'us'; }; /* weight + height */
+CM.unitsLab  = function(){ return localStorage.getItem('cmUnitsLab')==='si'?'si':'us'; };  /* creatinine + hemoglobin */
+CM.setUnitsBody = function(u){ try{ localStorage.setItem('cmUnitsBody',u); }catch(e){} fillPanel(); notify(); };
+CM.setUnitsLab  = function(u){ try{ localStorage.setItem('cmUnitsLab',u); }catch(e){} fillPanel(); notify(); };
+/* kept for backward compatibility (returns body units) */
+CM.units = function(){ return CM.unitsBody(); };
 
 /* Derived values (canonical metric internally). */
 CM.derived = function(){
@@ -252,9 +265,12 @@ var LOGO = '<svg viewBox="0 0 44 44" width="44" height="44" role="img" aria-labe
 function panelHTML(){
   return ''
   +'<div class="grid">'
-  +'<div class="field" style="grid-column:1/-1"><label id="lblUnits">Units</label>'
-  +'<div class="seg" role="group" aria-labelledby="lblUnits" id="unitSeg" data-field="units">'
-  +'<button type="button" data-v="us">US (lb, mg/dL)</button><button type="button" data-v="si">Metric / SI</button></div></div>'
+  +'<div class="field"><label id="lblUnitsBody">Weight &amp; height</label>'
+  +'<div class="seg" role="group" aria-labelledby="lblUnitsBody" id="unitSegBody" data-field="unitsBody">'
+  +'<button type="button" data-v="us">US (lb, ft/in)</button><button type="button" data-v="si">Metric (kg, cm)</button></div></div>'
+  +'<div class="field"><label id="lblUnitsLab">Labs (Cr, Hgb)</label>'
+  +'<div class="seg" role="group" aria-labelledby="lblUnitsLab" id="unitSegLab" data-field="unitsLab">'
+  +'<button type="button" data-v="us">US (mg/dL, g/dL)</button><button type="button" data-v="si">SI (µmol/L, g/L)</button></div></div>'
   +'<div class="field"><label for="pid">Patient ID / room <span class="hint">(optional)</span></label><input id="pid" type="text" autocomplete="off" placeholder="e.g. Rm 3 / initials"></div>'
   +'<div class="field"><label for="age">Age <span class="hint">(yrs)</span></label><input id="age" type="number" inputmode="numeric" step="1" min="18" max="120" autocomplete="off" placeholder="68"></div>'
   +'<div class="field"><label id="lblSex">Sex at birth</label>'
@@ -292,24 +308,26 @@ function panelStatus(){
 /* Fill panel inputs from state (used on load / unit switch / clear). */
 function fillPanel(){
   var panel=$('ppanelBody'); if(!panel)return;
-  var si=CM.units()==='si';
-  var us=$('unitSeg');
-  us.querySelectorAll('button').forEach(function(b){
-    var on=b.getAttribute('data-v')===(si?'si':'us');
+  var siB=CM.unitsBody()==='si', siL=CM.unitsLab()==='si';
+  $('unitSegBody').querySelectorAll('button').forEach(function(b){
+    var on=b.getAttribute('data-v')===(siB?'si':'us');
     b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');});
-  $('wrapHeightUS').style.display=si?'none':'';
-  $('wrapHeightSI').style.display=si?'':'none';
-  $('wLab').textContent=si?'(kg)':'(lb)';
-  $('scrLab').textContent=si?'(µmol/L)':'(mg/dL)';
-  $('hgbLab').textContent=si?'(g/L)':'(g/dL)';
+  $('unitSegLab').querySelectorAll('button').forEach(function(b){
+    var on=b.getAttribute('data-v')===(siL?'si':'us');
+    b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');});
+  $('wrapHeightUS').style.display=siB?'none':'';
+  $('wrapHeightSI').style.display=siB?'':'none';
+  $('wLab').textContent=siB?'(kg)':'(lb)';
+  $('scrLab').textContent=siL?'(µmol/L)':'(mg/dL)';
+  $('hgbLab').textContent=siL?'(g/L)':'(g/dL)';
   $('pid').value=P.pid||'';
   $('age').value=P.age!=null?P.age:'';
-  $('wt').value=P.kg!=null?(si?P.kg.toFixed(1):(P.kg*2.20462).toFixed(1)):'';
-  if(P.cm!=null){ if(si){$('cmH').value=P.cm.toFixed(1);}
+  $('wt').value=P.kg!=null?(siB?P.kg.toFixed(1):(P.kg*2.20462).toFixed(1)):'';
+  if(P.cm!=null){ if(siB){$('cmH').value=P.cm.toFixed(1);}
     else{ var ti=P.cm/2.54, f=Math.floor(ti/12), i=Math.round(ti-f*12); if(i===12){f++;i=0;} $('ft').value=f; $('in').value=i; } }
   else { $('cmH').value=''; $('ft').value=''; $('in').value=''; }
-  $('scr').value=P.scr!=null?(si?(P.scr*88.4).toFixed(0):P.scr.toFixed(2).replace(/0$/,'')):'';
-  $('hgb').value=P.hgb!=null?(si?(P.hgb*10).toFixed(0):P.hgb):'';
+  $('scr').value=P.scr!=null?(siL?(P.scr*88.4).toFixed(0):P.scr.toFixed(2).replace(/0$/,'')):'';
+  $('hgb').value=P.hgb!=null?(siL?(P.hgb*10).toFixed(0):P.hgb):'';
   var ropts=$('race').options;
   for(var r=0;r<ropts.length;r++){ ropts[r].selected=(parseFloat(ropts[r].value)===P.race && (P.race!==1||r===0)); }
   if(P.race===1)$('race').selectedIndex=0;
@@ -322,14 +340,14 @@ function fillPanel(){
 
 function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
 function readPanel(){
-  var si=CM.units()==='si';
+  var siB=CM.unitsBody()==='si', siL=CM.unitsLab()==='si';
   P.pid=$('pid').value.trim();
   var a=num('age'); P.age=(a&&a>0)?a:null;
-  var w=num('wt'); P.kg=(w&&w>0)?(si?w:w/2.20462):null;
-  if(si){ var c=num('cmH'); P.cm=(c&&c>0)?c:null; }
+  var w=num('wt'); P.kg=(w&&w>0)?(siB?w:w/2.20462):null;
+  if(siB){ var c=num('cmH'); P.cm=(c&&c>0)?c:null; }
   else { var ft=num('ft'); P.cm=(ft!=null)?((ft*12+(num('in')||0))*2.54):null; if(P.cm!=null&&P.cm<=0)P.cm=null; }
-  var s=num('scr'); P.scr=(s&&s>0)?(si?s/88.4:s):null;
-  var h=num('hgb'); P.hgb=(h&&h>0)?(si?h/10:h):null;
+  var s=num('scr'); P.scr=(s&&s>0)?(siL?s/88.4:s):null;
+  var h=num('hgb'); P.hgb=(h&&h>0)?(siL?h/10:h):null;
   P.race=parseFloat($('race').value)||1;
   saveP(); rangeFlag(); notify();
 }
@@ -394,7 +412,8 @@ CM.init = function(opts){
     $(id).addEventListener('input',readPanel); });
   $('race').addEventListener('change',readPanel);
   CM.wireSegs($('ppanelBody'),function(field,v){
-    if(field==='units'){ CM.setUnits(v); }
+    if(field==='unitsBody'){ CM.setUnitsBody(v); }
+    else if(field==='unitsLab'){ CM.setUnitsLab(v); }
     else if(field==='sex'){ P.sex=v; saveP(); notify(); }
     else if(field==='dial'){ P.dial=(v==='Yes'); saveP(); notify(); }
   });
@@ -453,7 +472,8 @@ CM.init = function(opts){
 
   /* service worker (needs http(s); silently skipped on file://) + update toast */
   if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
-    navigator.serviceWorker.register(ROOT+'sw.js').then(function(reg){
+    navigator.serviceWorker.register(ROOT+'sw.js',{updateViaCache:'none'}).then(function(reg){
+      reg.update();
       reg.addEventListener('updatefound',function(){
         var nw=reg.installing; if(!nw)return;
         nw.addEventListener('statechange',function(){

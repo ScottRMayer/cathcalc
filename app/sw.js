@@ -1,6 +1,6 @@
 /* Cath Lab Tools — service worker. Cache-first so the app is fully usable offline.
    Bump VERSION whenever any file changes. */
-var VERSION = 'cathlab-v2.3.2';
+var VERSION = 'cathlab-v2.4.0';
 var FILES = [
   './',
   './index.html',
@@ -31,14 +31,20 @@ self.addEventListener('activate', function(e){
     return Promise.all(keys.filter(function(k){ return k!==VERSION; }).map(function(k){ return caches.delete(k); }));
   }).then(function(){ return self.clients.claim(); }));
 });
+/* Stale-while-revalidate: serve instantly from cache (fast + offline), but always
+   fetch a fresh copy in the background and update the cache. This means the NEXT
+   load after any deploy is current, even if VERSION wasn't bumped. */
 self.addEventListener('fetch', function(e){
   if(e.request.method!=='GET')return;
+  if(e.request.url.indexOf('http')!==0)return;
   e.respondWith(
-    caches.match(e.request,{ignoreSearch:true}).then(function(hit){
-      return hit || fetch(e.request).then(function(res){
-        var copy=res.clone();
-        caches.open(VERSION).then(function(c){ c.put(e.request,copy); });
-        return res;
+    caches.open(VERSION).then(function(c){
+      return c.match(e.request,{ignoreSearch:true}).then(function(hit){
+        var net=fetch(e.request).then(function(res){
+          if(res&&res.status===200&&res.type==='basic'){ c.put(e.request,res.clone()); }
+          return res;
+        }).catch(function(){ return hit; });
+        return hit || net;
       });
     })
   );

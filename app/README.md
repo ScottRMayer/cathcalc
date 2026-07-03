@@ -46,6 +46,13 @@ No patient data is ever stored persistently or sent anywhere.
 
 ## Changelog
 
+- **2.4.0 (2026-07-03)** — Independent unit toggles: weight & height (US lb·ft/in or metric
+  kg/cm) and labs — creatinine & hemoglobin (US mg/dL·g/dL or SI µmol/L·g/L) are now set
+  separately, so labs can stay in the hospital's standard units while weight/height are entered
+  in metric. Preferences persist per device; legacy single-toggle setting migrates automatically.
+- **2.3.3** — Service worker hardening: stale-while-revalidate caching + no-cache SW script so
+  pushed updates surface within a load or two.
+
 - **2.3.0 (2026-07-03)** — Visual redesign: realistic PQRST ECG trace in the logo, app icons,
   and a subtle animated trace behind the header (respects reduced-motion); category color-coding
   (blue dosing / red hemodynamics / amber contrast / purple risk) across home cards, group
