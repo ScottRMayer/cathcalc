@@ -46,10 +46,10 @@ No patient data is ever stored persistently or sent anywhere.
 
 ## Changelog
 
-- **2.4.0 (2026-07-03)** — Independent unit toggles: weight & height (US lb·ft/in or metric
-  kg/cm) and labs — creatinine & hemoglobin (US mg/dL·g/dL or SI µmol/L·g/L) are now set
-  separately, so labs can stay in the hospital's standard units while weight/height are entered
-  in metric. Preferences persist per device; legacy single-toggle setting migrates automatically.
+- **2.4.1 (2026-07-03)** — Labs (creatinine, hemoglobin) are always mg/dL and g/dL — the SI lab
+  toggle was removed. A single toggle now controls only weight & height (US lb·ft/in or metric
+  kg/cm).
+- **2.4.0 (2026-07-03)** — Separate weight/height vs lab unit toggles (superseded by 2.4.1).
 - **2.3.3** — Service worker hardening: stale-while-revalidate caching + no-cache SW script so
   pushed updates surface within a load or two.
 
