@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>Zwolle score · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card" id="zCard">
+    <h2>Zwolle risk score — primary PCI</h2>
+    <p class="desc">Identifies low-risk STEMI patients after primary PCI who may be candidates for early (48–72 h) discharge. Age auto-fills from the shared patient.</p>
+    <div class="ckrow"><div class="q">Killip class<span class="hint">II = 4 pts · III–IV = 9 pts</span></div>
+      <div class="seg" data-field="zKil" style="flex-basis:230px"><button type="button" data-v="1" class="on" data-def>I</button><button type="button" data-v="2">II</button><button type="button" data-v="3">III–IV</button></div></div>
+    <div class="ckrow"><div class="q">Post-PCI TIMI flow<span class="hint">2 = 1 pt · 0–1 = 2 pts</span></div>
+      <div class="seg" data-field="zTimi" style="flex-basis:230px"><button type="button" data-v="3" class="on" data-def>3</button><button type="button" data-v="2">2</button><button type="button" data-v="1">0–1</button></div></div>
+    <div class="ckrow"><div class="q">Age ≥ 60<span class="hint" id="zAgeHint">2 pts</span></div><div class="seg" data-field="zAge"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    <div class="ckrow"><div class="q">Three-vessel disease<span class="hint">1 pt</span></div><div class="seg" data-field="z3v"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    <div class="ckrow"><div class="q">Anterior MI<span class="hint">1 pt</span></div><div class="seg" data-field="zAnt"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    <div class="ckrow"><div class="q">Ischemia time &gt; 4 h<span class="hint">1 pt</span></div><div class="seg" data-field="zT4"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    <div class="subsec">Result</div>
+    <div class="hero">
+      <span><span class="num sm good" id="zScore">0</span> <span class="unit">/ 16</span></span>
+      <span class="chip good" id="zChip">Low risk</span>
+    </div>
+    <div class="flag" id="zNote"></div>
+    <div class="note">Score ≤ 3 = low risk. Early discharge decisions remain per attending judgment and local protocol.</div>
+    <div class="cite">De Luca G, et al. Circulation 2004;109:2737-43.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$, card=$('zCard'), ageTouched=false;
+function setSeg(field,v){ card.querySelectorAll('.seg[data-field="'+field+'"] button').forEach(function(b){
+  var on=b.getAttribute('data-v')===v; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false'); }); }
+function render(){
+  var P=CM.patient();
+  if(P.age!=null){ $('zAgeHint').textContent='Patient age: '+P.age+' · 2 pts';
+    if(!ageTouched)setSeg('zAge',P.age>=60?'Yes':'No'); }
+  else { $('zAgeHint').textContent='2 pts'; }
+  var r=CM.F.zwolle({
+    killip:parseInt(CM.seg('zKil',card)||'1',10),
+    timiFlow:parseInt(CM.seg('zTimi',card)||'3',10),
+    age:CM.segYes('zAge',card)?60:0,
+    threeVessel:CM.segYes('z3v',card), anteriorMI:CM.segYes('zAnt',card), ischemiaGt4h:CM.segYes('zT4',card)});
+  CM.setNum('zScore',r.score,r.cls);
+  var chip=$('zChip'); chip.className='chip '+r.cls; chip.textContent=r.category;
+  $('zNote').textContent=r.note; $('zNote').className='flag'+(r.low?'':' warn');
+  CM.announce('Zwolle '+r.score+' points, '+r.category);
+}
+CM.init({title:'Zwolle score', copy:function(){
+  return 'Clara Maass CMC — Zwolle: '+$('zScore').textContent+'/16 ('+$('zChip').textContent+') · '+new Date().toLocaleString('en-US');
+}, onClear:function(){ CM.resetSegs(card); ageTouched=false; render(); }});
+CM.wireSegs(card,function(field){ if(field==='zAge')ageTouched=true; render(); });
+CM.onChange(render); render();
+</script>
+</body>
+</html>

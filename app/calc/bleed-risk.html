@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>Bleeding risk (ACC CathPCI) · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card">
+    <h2>Bleeding risk (ACC CathPCI, simplified)</h2>
+    <p class="desc">Estimated post-PCI bleeding event. Uses age, sex, Hgb, BMI, and eGFR from the shared patient.</p>
+    <div class="grid">
+      <div class="field"><label id="lblStemi">STEMI?</label><div class="seg" role="group" aria-labelledby="lblStemi" data-field="stemi"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblShock">Cardiogenic shock?</label><div class="seg" role="group" aria-labelledby="lblShock" data-field="shock"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblPci">Prior PCI?</label><div class="seg" role="group" aria-labelledby="lblPci" data-field="pci"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    </div>
+    <div class="subsec">Result</div>
+    <div class="hero">
+      <span><span class="num" id="bleed">—</span></span>
+      <span class="chip neutral" id="bleedChip" style="display:none"></span>
+      <span class="side">vs ≈3.3% national avg</span>
+    </div>
+    <div class="err" id="bleedErr"></div>
+    <div class="cite">Simplified ACC NCDR CathPCI bleeding risk model. Decision support only.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$, card=document.querySelector('.card');
+function render(){
+  var P=CM.patient(), d=CM.derived(), miss=[], bChip=$('bleedChip');
+  if(P.age==null)miss.push('age'); if(!P.sex)miss.push('sex'); if(P.hgb==null)miss.push('hemoglobin');
+  if(d.bmi==null)miss.push('height/weight'); if(d.egfr==null&&!P.dial)miss.push('creatinine');
+  if(miss.length){ CM.setNum('bleed','—','neutral'); bChip.style.display='none';
+    $('bleedErr').textContent='Enter '+miss.join(', ')+'.'; return; }
+  $('bleedErr').textContent='';
+  var risk=CM.F.cathPCIBleed({age:P.age, female:d.female, hgb:P.hgb, bmi:d.bmi,
+    egfr:(d.egfr==null?999:d.egfr), dialysis:P.dial,
+    stemi:CM.segYes('stemi',card), shock:CM.segYes('shock',card), priorPCI:CM.segYes('pci',card)});
+  var cls=risk<3.3?'good':(risk<10?'warn':'bad');
+  CM.setNum('bleed',risk.toFixed(1)+'%',cls);
+  bChip.style.display=''; bChip.className='chip '+cls;
+  bChip.textContent=risk<3.3?'Low':(risk<10?'Elevated':'High');
+  CM.announce('Bleeding risk '+risk.toFixed(1)+' percent');
+}
+CM.init({title:'Bleeding risk (ACC CathPCI)', copy:function(){
+  return 'Clara Maass CMC — Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):'')+' ('+new Date().toLocaleString('en-US')+')';
+}, onClear:function(){ CM.resetSegs(card); render(); }});
+CM.wireSegs(card,function(){ render(); });
+CM.onChange(render); render();
+</script>
+</body>
+</html>

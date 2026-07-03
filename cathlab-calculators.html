@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='10' fill='%2300548b'/%3E%3Ctext x='22' y='23' text-anchor='middle' font-family='Arial' font-weight='bold' font-size='15' fill='white'%3ECM%3C/text%3E%3Cpath d='M8 33h6l2.6-6 3.8 11 2.6-5H36' fill='none' stroke='%23d02b2e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Cath Lab Calculators · Clara Maass Medical Center</title>
+<!--
+  Clara Maass Medical Center — Cardiac Catheterization Lab Calculators.
+  Brand: blue #00548b, red #d02b2e (verified from official logo). No green (off-brand for this facility).
+  Modules: Heparin | ACT re-bolus | Max contrast + used tracker | Drug dosing | Bleeding risk | Mehran CI-AKI
+  eGFR = MDRD 4-variable (kept to match the ACC CathPCI bleed model). CrCl = Cockcroft-Gault.
+  Fully offline / self-contained. Decision-support only. Verify against local protocol / package inserts.
+-->
+<style>
+  :root{
+    --ink:#12202f;--muted:#475569;--line:#e2e8f0;--card:#ffffff;--bg:#eef2f7;
+    --accent:#00548b;--accent-soft:#e6eff6;
+    --brand-blue:#00548b;--brand-blue-dk:#013e68;--brand-red:#d02b2e;--brand-slate:#53616f;
+    --good:#166534;--good-bg:#e7f6ec;--warn:#92400e;--warn-bg:#fdf1e1;--bad:#b91c1c;--bad-bg:#fbeaea;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+    background:var(--bg);font-size:16px;line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 16px 80px}
+  h1{font-size:1.5rem;margin:0}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--accent);min-height:44px;padding:11px 16px;border-radius:10px;
+    font-size:.9rem;font-weight:700;cursor:pointer}
+  .btn:active{background:#f1f5f9}
+  .btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .tagline{color:var(--muted);font-size:.9rem;margin:0 0 4px}
+  .printmeta{font-size:.78rem;color:var(--muted);margin:0 0 12px}
+
+  .brandbar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:#fff;color:var(--brand-blue);border:1px solid var(--line);border-bottom:3px solid var(--brand-red);
+    border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(16,32,48,.05)}
+  .brandbar-main{display:flex;align-items:center;gap:14px;min-width:0}
+  .brandmark{flex:0 0 auto}
+  .brandmark svg{display:block}
+  .brandtext{min-width:0}
+  .brandtext .hosp{font-size:1.12rem;font-weight:800;line-height:1.12;letter-spacing:.005em;color:var(--brand-blue)}
+  .brandtext .dept{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--brand-slate);margin-top:3px}
+  .brandbtns{display:flex;gap:8px;flex:0 0 auto}
+  .apptitle{font-size:1.3rem;margin:18px 0 2px}
+
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+  .summary{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+    background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    border:1px solid var(--line);border-top:3px solid var(--brand-red);border-radius:12px;padding:10px 12px;margin-bottom:16px}
+  .summary .s{min-width:0;text-align:center}
+  .summary .s .lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .summary .s .val{font-size:1.15rem;font-weight:700}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;margin-bottom:16px;
+    box-shadow:0 1px 2px rgba(16,32,48,.04)}
+  .card h2{font-size:1.15rem;margin:0 0 2px}
+  .card .desc{color:var(--muted);font-size:.85rem;margin:0 0 14px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+  .field label{display:block;font-size:.82rem;font-weight:600;margin-bottom:6px;color:#334155}
+  .field .hint{font-weight:400;color:var(--muted);font-size:.75rem}
+  input,select{width:100%;min-height:48px;padding:10px 12px;border:1.5px solid var(--line);border-radius:11px;
+    font-size:1.05rem;background:#fff;color:var(--ink);-moz-appearance:textfield}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input:focus-visible,select:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .derived{font-size:.78rem;color:var(--muted);margin-top:6px;min-height:1em}
+
+  .seg{display:flex;gap:10px}
+  .seg button{flex:1;min-height:48px;border:1.5px solid var(--line);background:#fff;color:#334155;
+    border-radius:11px;font-size:1rem;font-weight:600;cursor:pointer;transition:.12s}
+  .seg button:active{transform:scale(.97)}
+  .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(0,84,139,.35)}
+  .seg button:focus{outline:3px solid var(--accent);outline-offset:2px}
+  .seg button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+  .hero{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px}
+  .hero .num{font-size:2.7rem;font-weight:800;line-height:1;letter-spacing:-.02em}
+  .hero .num.sm{font-size:2rem}
+  .hero .unit{font-size:1rem;color:var(--muted);font-weight:600}
+  .hero .side{font-size:.9rem;color:var(--muted)}
+  .num.good{color:var(--good)}.num.warn{color:var(--warn)}.num.bad{color:var(--bad)}.num.neutral{color:var(--accent)}
+  .chip{display:inline-block;font-size:.82rem;font-weight:700;padding:4px 12px;border-radius:20px}
+  .chip.lg{font-size:1rem;padding:6px 14px}
+  .chip.good{background:var(--good-bg);color:var(--good)}
+  .chip.warn{background:var(--warn-bg);color:var(--warn)}
+  .chip.bad{background:var(--bad-bg);color:var(--bad)}
+  .chip.neutral{background:var(--accent-soft);color:var(--accent)}
+
+  .dual{display:flex;flex-wrap:wrap;gap:14px}
+  .dual .box{flex:1;min-width:150px;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .dual .box .lab{font-size:.75rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+  .dual .box .big{font-size:1.7rem;font-weight:800;margin-top:2px}
+  .dual .box .u{font-size:.85rem;color:var(--muted);font-weight:600}
+
+  .subsec{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 10px;font-weight:700}
+  .flag{font-size:.85rem;margin-top:10px;color:var(--muted)}
+  .flag.warn{color:var(--warn)}
+  .err{color:var(--bad);font-size:.85rem;margin-top:10px;min-height:1em;font-weight:600}
+  .note{font-size:.77rem;color:var(--muted);margin-top:12px;line-height:1.45}
+  .drug{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#f8fafc}
+  .drug .name{font-weight:800;font-size:1rem}
+  .drug .dose{font-size:.95rem;margin-top:3px}
+  .drug .adj{font-size:.8rem;color:var(--warn);margin-top:4px;font-weight:600}
+  .disc{color:var(--muted);font-size:.8rem;text-align:center;margin-top:8px}
+
+  .trkrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  .trkrow input{max-width:120px}
+  .trkbtn{min-height:44px;padding:8px 14px;border:1.5px solid var(--line);background:#fff;color:var(--accent);
+    border-radius:10px;font-weight:800;font-size:1rem;cursor:pointer}
+  .trkbtn:active{transform:scale(.96)}
+  .trkbtn.minus{color:var(--muted)}
+  .trkbar{height:12px;border-radius:7px;background:#e7ecf2;overflow:hidden;margin:8px 0 6px}
+  .trkbar>i{display:block;height:100%;width:0;background:var(--good);transition:width .2s,background .2s}
+  .trkinfo{font-size:.88rem;color:var(--muted);font-weight:600}
+
+  @media (prefers-color-scheme:dark){
+    :root{--ink:#e8eef5;--muted:#a3b1c2;--line:#28323f;--card:#141d28;--bg:#0b1420;
+      --accent:#4d9de0;--accent-soft:#12283d;--brand-slate:#a3b1c2;
+      --good:#4ade80;--good-bg:#0f2e1c;--warn:#fbbf24;--warn-bg:#33270a;--bad:#f87171;--bad-bg:#3a1414;}
+    body{background:var(--bg)}
+    .btn,input,select{background:#0e1822;color:var(--ink)}
+    .btn{color:var(--accent)}
+    .seg button{background:#0e1822;color:var(--ink)}
+    .dual .box,.drug{background:#0e1822}
+    .trkbtn{background:#0e1822;color:var(--accent)}
+    .field label{color:#c7d2df}
+    .summary{background:rgba(20,29,40,.94)}
+    .brandbar{background:var(--card);color:var(--accent);border-color:var(--line)}
+    .brandtext .hosp{color:var(--accent)}
+  }
+  @media print{
+    :root{--bg:#fff;--muted:#333}
+    body{background:#fff;font-size:12px}
+    .wrap{max-width:100%;padding:0}
+    .btn,.tagline{display:none}
+    .trkbtn{display:none}
+    .brandbar{background:#fff !important;color:#00548b !important;border:1px solid #999;box-shadow:none;border-bottom:2px solid #d02b2e}
+    .brandbar .hosp{color:#00548b !important}.brandbar .dept{color:#333 !important}
+    .summary{position:static;border:0;border-top:2px solid #d02b2e;backdrop-filter:none;box-shadow:none;padding:6px 0 0;margin-bottom:8px}
+    .card{break-inside:avoid;box-shadow:none;border:1px solid #999;margin-bottom:8px;padding:10px}
+    .seg button{border:1px solid #999}
+    .seg button:not(.on){display:none}
+    .seg button.on{background:#fff !important;color:#000 !important;border:1.5px solid #000}
+    .chip{border:1px solid #000;color:#000 !important;background:#fff !important}
+    .num,.big,.val{color:#000 !important}
+    input,select{border:1px solid #999}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="brandbar">
+    <div class="brandbar-main">
+      <span class="brandmark">
+        <svg viewBox="0 0 44 44" width="46" height="46" role="img" aria-label="Clara Maass Medical Center">
+          <rect width="44" height="44" rx="10" fill="#00548b"/>
+          <text x="22" y="23" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-weight="800" font-size="15" fill="#ffffff">CM</text>
+          <path d="M8 33h6l2.6-6 3.8 11 2.6-5H36" fill="none" stroke="#d02b2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div class="brandtext">
+        <div class="hosp">Clara Maass Medical Center</div>
+        <div class="dept">Cardiac Catheterization Lab · Belleville, NJ</div>
+      </div>
+    </div>
+    <div class="brandbtns">
+      <button class="btn" id="copyBtn" type="button">Copy</button>
+      <button class="btn" id="clearBtn" type="button">New patient</button>
+    </div>
+  </header>
+  <h1 class="apptitle">Cath Lab Calculators</h1>
+  <p class="tagline">Enter the patient once — everything below updates instantly.</p>
+  <div class="printmeta" id="printmeta"></div>
+
+  <div class="summary" aria-label="Derived values">
+    <div class="s"><div class="lab">BMI</div><div class="val" id="sBmi">—</div></div>
+    <div class="s"><div class="lab">eGFR·MDRD</div><div class="val" id="sGfr">—</div></div>
+    <div class="s"><div class="lab">CrCl</div><div class="val" id="sCrcl">—</div></div>
+  </div>
+
+  <!-- PATIENT -->
+  <div class="card">
+    <h2>Patient</h2>
+    <p class="desc">Shared inputs for every calculator.</p>
+    <div class="grid">
+      <div class="field" style="grid-column:1/-1">
+        <label id="lblUnits">Units</label>
+        <div class="seg" role="group" aria-labelledby="lblUnits" data-field="units"><button type="button" data-v="us" class="on" data-def>US (lb, mg/dL)</button><button type="button" data-v="si">Metric / SI</button></div>
+      </div>
+      <div class="field"><label for="pid">Patient ID / room <span class="hint">(optional)</span></label><input id="pid" type="text" autocomplete="off" placeholder="e.g. Rm 3 / initials"></div>
+      <div class="field"><label for="age">Age <span class="hint">(yrs)</span></label><input id="age" type="number" inputmode="numeric" step="1" min="18" max="120" autocomplete="off" placeholder="68"></div>
+      <div class="field"><label id="lblSex">Sex at birth</label>
+        <div class="seg" role="group" aria-labelledby="lblSex" data-field="sex"><button type="button" data-v="M">Male</button><button type="button" data-v="F">Female</button></div>
+      </div>
+      <div class="field"><label for="race">Race <span class="hint">(MDRD eGFR)</span></label><select id="race">
+        <option value="1">White / Other</option><option value="1">Asian</option>
+        <option value="1">American Indian / Alaska Native</option>
+        <option value="1.21">Black or African American</option>
+        <option value="1">Hispanic or Latino</option><option value="1">Native Hawaiian / Pacific Isl.</option></select></div>
+      <div class="field"><label for="wt">Weight <span class="hint" id="wLab">(lb)</span></label><input id="wt" type="number" inputmode="decimal" step="0.1" min="1" autocomplete="off" placeholder="weight"><div class="derived" id="wtDeriv"></div></div>
+      <div class="field" id="wrapHeightUS"><label for="ft">Height</label><div class="row2"><input id="ft" type="number" inputmode="numeric" step="1" min="0" max="8" autocomplete="off" placeholder="ft" aria-label="Height feet"><input id="in" type="number" inputmode="numeric" step="1" min="0" max="11" autocomplete="off" placeholder="in" aria-label="Height inches"></div></div>
+      <div class="field" id="wrapHeightSI" style="display:none"><label for="cm">Height <span class="hint">(cm)</span></label><input id="cm" type="number" inputmode="decimal" step="0.1" min="30" max="250" autocomplete="off" placeholder="175"></div>
+      <div class="field"><label for="scr">Creatinine <span class="hint" id="scrLab">(mg/dL)</span></label><input id="scr" type="number" inputmode="decimal" step="0.01" min="0.1" autocomplete="off" placeholder="1.0"></div>
+      <div class="field"><label for="hgb">Hemoglobin <span class="hint" id="hgbLab">(g/dL)</span></label><input id="hgb" type="number" inputmode="decimal" step="0.1" min="1" max="25" autocomplete="off" placeholder="13.5"></div>
+      <div class="field"><label id="lblDial">On dialysis?</label>
+        <div class="seg" role="group" aria-labelledby="lblDial" data-field="dial"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div>
+      </div>
+    </div>
+    <div class="flag" id="rangeFlag"></div>
+    <div class="note">eGFR uses MDRD 4-variable with the legacy race coefficient — retained deliberately to match the ACC CathPCI bleed model. CrCl uses Cockcroft-Gault (actual body weight; consider ideal/adjusted weight in obesity). Switching units converts existing entries.</div>
+  </div>
+
+  <!-- HEPARIN -->
+  <div class="card">
+    <h2>Heparin dose</h2>
+    <p class="desc">Weight-based bolus.</p>
+    <div class="dual">
+      <div class="box"><div class="lab">Diagnostic · 50 U/kg</div><div class="big"><span id="hepDiag">—</span> <span class="u">U</span></div><div class="derived" id="hepDiagR"></div></div>
+      <div class="box"><div class="lab">Intervention · 70 U/kg</div><div class="big"><span id="hepInt">—</span> <span class="u">U</span></div><div class="derived" id="hepIntR"></div></div>
+    </div>
+    <div class="err" id="hepErr"></div>
+    <div class="note">Rounded to nearest 100 U. Titrate to ACT per protocol.</div>
+  </div>
+
+  <!-- ACT -->
+  <div class="card">
+    <h2>ACT target &amp; re-bolus</h2>
+    <p class="desc">Check during PCI.</p>
+    <div class="grid">
+      <div class="field" style="grid-column:1/-1"><label for="actPreset">Target</label>
+        <select id="actPreset">
+          <option value="300">Heparin monotherapy — 300–350 s</option>
+          <option value="250">Heparin + GP IIb/IIIa — 250–300 s</option>
+          <option value="200">Diagnostic / radial — 200–250 s</option>
+          <option value="custom">Custom…</option>
+        </select></div>
+      <div class="field"><label for="actTarget">Target min <span class="hint">(s)</span></label><input id="actTarget" type="number" inputmode="numeric" step="5" min="150" max="600" value="300"></div>
+      <div class="field"><label for="actMeasured">Measured ACT <span class="hint">(s)</span></label><input id="actMeasured" type="number" inputmode="numeric" step="1" min="0" max="1500" autocomplete="off" placeholder="210"></div>
+      <div class="field"><label for="actUkg">Re-bolus rate <span class="hint">(U/kg)</span></label><input id="actUkg" type="number" inputmode="numeric" step="1" min="1" max="100" value="25"></div>
+    </div>
+    <div class="subsec">Status</div>
+    <div class="hero">
+      <span class="chip lg neutral" id="actChip">Enter ACT</span>
+      <span><span class="num sm neutral" id="actRebolus">—</span> <span class="unit">U re-bolus</span></span>
+    </div>
+    <div class="flag" id="actFlag"></div>
+    <div class="err" id="actErr"></div>
+    <div class="note">Re-bolus = weight × U/kg (nearest 500), shown only when below target. Recheck ACT ~5 min after any bolus. Targets are institution-specific.</div>
+  </div>
+
+  <!-- CONTRAST -->
+  <div class="card">
+    <h2>Contrast volume</h2>
+    <p class="desc">Max limit and running total used.</p>
+    <div class="field" style="max-width:340px;margin-bottom:14px"><label for="contrastRule">eGFR limit rule</label>
+      <select id="contrastRule"><option value="3">3 × eGFR (common)</option><option value="3.7">3.7 × eGFR (Gurm &lt;3.7)</option><option value="1">1 × eGFR (most conservative)</option></select></div>
+    <div class="hero">
+      <span><span class="num neutral" id="cMax">—</span> <span class="unit">mL max</span></span>
+      <span class="chip neutral" id="cChip" style="display:none"></span>
+    </div>
+    <div class="dual" style="margin-top:14px">
+      <div class="box"><div class="lab">Weight ÷ creatinine</div><div class="big" style="font-size:1.35rem"><span id="cWt">—</span> <span class="u">mL</span></div></div>
+      <div class="box"><div class="lab"><span id="cMultLab">3</span> × eGFR</div><div class="big" style="font-size:1.35rem"><span id="cGfr">—</span> <span class="u">mL</span></div></div>
+    </div>
+    <div class="flag" id="cDialFlag"></div>
+    <div class="err" id="cErr"></div>
+    <div class="subsec">Contrast used</div>
+    <div class="trkrow">
+      <input id="cUsed" type="number" inputmode="numeric" step="1" min="0" autocomplete="off" placeholder="0" aria-label="Contrast used (mL)">
+      <button class="trkbtn" type="button" data-add="10">+10</button>
+      <button class="trkbtn" type="button" data-add="20">+20</button>
+      <button class="trkbtn" type="button" data-add="50">+50</button>
+      <button class="trkbtn minus" type="button" data-add="-10">−10</button>
+      <button class="trkbtn minus" type="button" id="cUsedReset">Reset</button>
+    </div>
+    <div class="trkbar"><i id="cUsedBar"></i></div>
+    <div class="trkinfo"><span id="cUsedVal">0</span> mL used · <span id="cPct">—</span> of max</div>
+    <div class="note">2.5 × kg ÷ SCr (halved Cigarroa) vs eGFR rule; absolute cap 300 mL. Used total also feeds the Mehran score.</div>
+  </div>
+
+  <!-- DRUGS -->
+  <div class="card">
+    <h2>Anticoagulant / antiplatelet dosing</h2>
+    <p class="desc" id="drugCrcl">Weight-based, renal-adjusted.</p>
+    <div class="field" style="max-width:320px;margin-bottom:12px"><label for="drugPick">Show agent</label>
+      <select id="drugPick"><option value="all">All agents</option><option>Bivalirudin</option><option>Eptifibatide</option><option>Tirofiban (HDB)</option><option>Cangrelor</option></select></div>
+    <div id="drugList"></div>
+    <div class="err" id="drugErr"></div>
+    <div class="note"><strong>Verify against pharmacy protocol and current package inserts.</strong> Renal adjustment uses Cockcroft-Gault CrCl. Confirm infusion concentrations locally.</div>
+  </div>
+
+  <!-- BLEED -->
+  <div class="card">
+    <h2>Bleeding risk (ACC CathPCI, simplified)</h2>
+    <p class="desc">Estimated post-PCI bleeding event.</p>
+    <div class="grid">
+      <div class="field"><label id="lblStemi">STEMI?</label><div class="seg" role="group" aria-labelledby="lblStemi" data-field="stemi"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblShock">Cardiogenic shock?</label><div class="seg" role="group" aria-labelledby="lblShock" data-field="shock"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblPci">Prior PCI?</label><div class="seg" role="group" aria-labelledby="lblPci" data-field="pci"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    </div>
+    <div class="subsec">Result</div>
+    <div class="hero">
+      <span><span class="num" id="bleed">—</span></span>
+      <span class="chip neutral" id="bleedChip" style="display:none"></span>
+      <span class="side">vs ≈3.3% national avg</span>
+    </div>
+    <div class="err" id="bleedErr"></div>
+  </div>
+
+  <!-- MEHRAN -->
+  <div class="card">
+    <h2>Mehran CI-AKI score</h2>
+    <p class="desc">Contrast nephropathy risk. Renal points auto from creatinine/eGFR; contrast from the tracker.</p>
+    <div class="grid">
+      <div class="field"><label id="lblHypo">Hypotension <span class="hint">(SBP&lt;80)</span></label><div class="seg" role="group" aria-labelledby="lblHypo" data-field="mHypo"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblIabp">IABP</label><div class="seg" role="group" aria-labelledby="lblIabp" data-field="mIabp"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblChf">CHF</label><div class="seg" role="group" aria-labelledby="lblChf" data-field="mChf"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblAnemia">Anemia</label><div class="seg" role="group" aria-labelledby="lblAnemia" data-field="mAnemia"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblDm">Diabetes</label><div class="seg" role="group" aria-labelledby="lblDm" data-field="mDm"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    </div>
+    <div class="derived" id="mContrastEcho"></div>
+    <div class="subsec">Result</div>
+    <div class="hero">
+      <span><span class="num sm" id="mScore">—</span> <span class="unit">points</span></span>
+      <span class="chip neutral" id="mChip" style="display:none"></span>
+      <span class="side">CI-AKI <b id="mCin">—</b> · dialysis <b id="mDialR">—</b></span>
+    </div>
+    <div class="err" id="mErr"></div>
+    <div class="note">Renal: SCr&gt;1.5 = 4 pts; else eGFR 40–60 = 2, 20–40 = 4, &lt;20 = 6. Contrast: 1 pt / 100 mL.</div>
+  </div>
+
+  <p class="disc"><strong>Clara Maass Medical Center</strong> · Cardiac Catheterization Lab · 1 Clara Maass Drive, Belleville, NJ 07109 · (973) 450-2000<br>
+  For internal clinical use. Decision-support estimates only — not a substitute for clinical judgment. Verify against local protocol.</p>
+</div>
+<div class="sr-only" aria-live="polite" id="srlive"></div>
+
+<script>
+/* ================= PURE FUNCTIONS (verified, unchanged math) ================= */
+function calcCathPCIBleedRisk(p){var x=-0.0884;
+  x+=0.0155*Math.min(p.age,70)+0.02097*Math.max(0,p.age-70);
+  x+=p.stemi?0.9327:0;
+  x+=-0.3474*Math.min(p.hgb,13)+0.03236*Math.max(0,p.hgb-13);
+  x+=p.female?0.4403:0; x+=p.shock?1.9807:0;
+  x+=-0.04266*Math.min(p.bmi,30)+-0.00201*Math.max(0,p.bmi-30);
+  if(p.egfr<29.99||p.dialysis)x+=0.6309; else if(p.egfr>=45&&p.egfr<=59.99)x+=0.3346; else if(p.egfr>=30&&p.egfr<=44.99)x+=0.5016;
+  x+=p.priorPCI?-0.2131:0; return 100*Math.exp(x)/(1+Math.exp(x));}
+function calcEGFR(scr,age,female,race){return 186*Math.pow(scr,-1.154)*Math.pow(age,-0.203)*(female?0.742:1)*race;}
+function cockcroftGault(age,kg,female,scr){return ((140-age)*kg*(female?0.85:1))/(72*scr);}
+function heparinDose(kg,uPerKg){return kg*uPerKg;}
+function maxContrast(kg,scr,egfr,mult){var w=2.5*kg/scr,g=mult*egfr;return{wt:w,gfr:g,max:Math.min(300,w,g)};}
+function mehran(o){var s=0;
+  if(o.hypotension)s+=5; if(o.iabp)s+=5; if(o.chf)s+=5; if(o.age>75)s+=4; if(o.anemia)s+=3; if(o.diabetes)s+=3;
+  if(o.contrastML)s+=Math.floor(Math.max(0,o.contrastML)/100);
+  if(o.dialysis)s+=6; else if(o.scr!=null&&o.scr>1.5)s+=4; else if(o.egfr!=null){if(o.egfr<20)s+=6; else if(o.egfr<40)s+=4; else if(o.egfr<60)s+=2;}
+  var cat,cin,dia,cls; if(s<=5){cat='Low';cin='7.5%';dia='0.04%';cls='good';}else if(s<=10){cat='Moderate';cin='14.0%';dia='0.12%';cls='warn';}
+  else if(s<=16){cat='High';cin='26.1%';dia='1.09%';cls='bad';}else{cat='Very high';cin='57.3%';dia='21.6%';cls='bad';}
+  return{score:s,category:cat,cinRisk:cin,dialysisRisk:dia,cls:cls};}
+function bivalirudin(kg,crcl,dial){var r=1.75;if(dial)r=0.25;else if(crcl<30)r=1.0;return{bolus_mg:0.75*kg,rate:r,inf:r*kg};}
+function eptifibatide(kg,crcl,dial){if(dial)return{ci:true};var dw=Math.min(kg,121),rate=crcl<50?1:2;return{bolus_mcg:180*dw,rate:rate,inf:rate*dw,reduced:crcl<50};}
+function tirofiban(kg,crcl,dial){var rate=crcl<=60?0.075:0.15;return{bolus_mcg:25*kg,rate:rate,inf:rate*kg,reduced:crcl<=60,caution:(dial||crcl<30)};}
+function cangrelor(kg){return{bolus_mcg:30*kg,rate:4,inf:4*kg};}
+function actRebolus(kg,uPerKg){return Math.round(kg*uPerKg/500)*500;}
+
+/* ================= UI GLUE ================= */
+var $=function(id){return document.getElementById(id);};
+function num(id){var el=$(id);if(!el)return null;var v=parseFloat(el.value);return isNaN(v)?null:v;}
+function seg(f){var b=document.querySelector('.seg[data-field="'+f+'"] button.on');return b?b.getAttribute('data-v'):'';}
+function SIon(){return seg('units')==='si';}
+function syncAria(g){g.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x.classList.contains('on')?'true':'false');});}
+function fmt(n){return Number(n).toLocaleString('en-US');}
+var unitsSI=false;
+
+document.querySelectorAll('.seg').forEach(function(g){
+  syncAria(g);
+  g.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    g.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on'); syncAria(g);
+    if(g.getAttribute('data-field')==='units'){switchUnits();} else {recompute();}
+  });
+});
+['pid','age','race','wt','ft','in','cm','scr','hgb','contrastRule','cUsed','drugPick','actTarget','actMeasured','actUkg']
+ .forEach(function(id){var el=$(id);if(!el)return;el.addEventListener('input',recompute);el.addEventListener('change',recompute);});
+$('actPreset').addEventListener('change',function(){if(this.value!=='custom'){$('actTarget').value=this.value;}recompute();});
+$('actTarget').addEventListener('input',function(){var m={'300':1,'250':1,'200':1};$('actPreset').value=m[this.value]?this.value:'custom';});
+
+/* contrast tracker */
+document.querySelectorAll('[data-add]').forEach(function(btn){btn.addEventListener('click',function(){
+  var cur=parseFloat($('cUsed').value); if(isNaN(cur))cur=0;
+  var nv=Math.max(0,cur+parseFloat(this.getAttribute('data-add')));
+  $('cUsed').value=nv; recompute();
+});});
+$('cUsedReset').addEventListener('click',function(){$('cUsed').value='';recompute();});
+
+function applyUnits(){var si=SIon();
+  $('wrapHeightUS').style.display=si?'none':'';$('wrapHeightSI').style.display=si?'':'none';
+  $('wLab').textContent=si?'(kg)':'(lb)';$('scrLab').textContent=si?'(µmol/L)':'(mg/dL)';$('hgbLab').textContent=si?'(g/L)':'(g/dL)';}
+function convertFields(toSI){
+  var wt=num('wt'); if(wt!==null)$('wt').value=(toSI?wt/2.20462:wt*2.20462).toFixed(1);
+  var scr=num('scr'); if(scr!==null)$('scr').value=(toSI?scr*88.4:scr/88.4).toFixed(toSI?0:2);
+  var hgb=num('hgb'); if(hgb!==null)$('hgb').value=(toSI?hgb*10:hgb/10).toFixed(toSI?0:1);
+  if(toSI){var ft=num('ft'); if(ft!==null){$('cm').value=((ft*0.3048+(num('in')||0)*0.0254)*100).toFixed(1);} $('ft').value='';$('in').value='';}
+  else{var cm=num('cm'); if(cm!==null){var ti=cm/2.54,f=Math.floor(ti/12),i=Math.round(ti-f*12); if(i===12){f++;i=0;} $('ft').value=f;$('in').value=i;} $('cm').value='';}
+}
+function switchUnits(){var newSI=SIon(); if(newSI!==unitsSI){convertFields(newSI);unitsSI=newSI;} applyUnits(); recompute();}
+
+$('clearBtn').addEventListener('click',function(){
+  ['pid','age','wt','ft','in','cm','scr','hgb','cUsed','actMeasured'].forEach(function(id){$(id).value='';});
+  $('actTarget').value='300';$('actUkg').value='25';$('actPreset').value='300';$('race').selectedIndex=0;$('contrastRule').selectedIndex=0;$('drugPick').selectedIndex=0;
+  document.querySelectorAll('.seg').forEach(function(g){
+    if(g.getAttribute('data-field')==='units')return;
+    g.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+    var d=g.querySelector('[data-def]'); if(d)d.classList.add('on'); syncAria(g);
+  });
+  recompute();
+});
+
+/* copy summary */
+function copyText(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText){return navigator.clipboard.writeText(t);}
+  return new Promise(function(res,rej){var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');res();}catch(e){rej(e);}document.body.removeChild(ta);});
+}
+function buildSummary(){
+  var L=[],pid=$('pid').value.trim();
+  L.push('Clara Maass Medical Center — Cath Lab Calculators');
+  L.push(new Date().toLocaleString('en-US'));
+  if(pid)L.push('Patient: '+pid);
+  L.push('');
+  L.push('Weight '+($('wtDeriv').textContent.replace('= ','')||'—')+' · BMI '+$('sBmi').textContent+' · eGFR '+$('sGfr').textContent+' · CrCl '+$('sCrcl').textContent);
+  L.push('Heparin: dx '+$('hepDiag').textContent+' U / PCI '+$('hepInt').textContent+' U');
+  var rb=$('actRebolus').textContent;
+  L.push('ACT: '+$('actChip').textContent+((rb!=='—'&&rb!=='0')?(' — re-bolus '+rb+' U'):''));
+  L.push('Contrast: '+((num('cUsed')||0))+' mL used / max '+$('cMax').textContent+' mL');
+  L.push('Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):''));
+  L.push('Mehran: '+$('mScore').textContent+' pts '+($('mChip').textContent?('('+$('mChip').textContent+')'):'')+' — CI-AKI '+$('mCin').textContent+', dialysis '+$('mDialR').textContent);
+  var drugs=document.querySelectorAll('#drugList .drug');
+  if(drugs.length){L.push('');L.push('Drugs — '+$('drugCrcl').textContent+':');
+    drugs.forEach(function(d){L.push('  • '+d.querySelector('.name').textContent+': '+d.querySelector('.dose').textContent);});}
+  L.push('');L.push('Decision-support only; verify per protocol.');
+  return L.join('\n');
+}
+$('copyBtn').addEventListener('click',function(){var b=this;copyText(buildSummary()).then(function(){var o=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=o;},1200);},function(){b.textContent='Copy failed';setTimeout(function(){b.textContent='Copy';},1400);});});
+
+function weightKg(){var w=num('wt');if(w===null||w<=0)return null;return SIon()?w:w/2.20462;}
+function heightCm(){var h;if(SIon()){h=num('cm');}else{var ft=num('ft');if(ft===null)return null;h=(ft*0.3048+(num('in')||0)*0.0254)*100;}return (h!==null&&h>0)?h:null;}
+function scrMgdl(){var s=num('scr');if(s===null||s<=0)return null;return SIon()?s/88.4:s;}
+function hgbGdl(){var h=num('hgb');if(h===null||h<=0)return null;return SIon()?h/10:h;}
+function ageVal(){var a=num('age');return (a!==null&&a>0)?a:null;}
+function round100(n){return Math.round(n/100)*100;}
+function setNum(id,val,cls){var el=$(id);el.textContent=val;el.classList.remove('good','warn','bad','neutral');if(cls)el.classList.add(cls);}
+
+var srTimer;
+function recompute(){
+  var kg=weightKg(), cm=heightCm(), scr=scrMgdl(), age=ageVal(), sx=seg('sex'),
+      race=parseFloat($('race').value), female=sx==='F', dialysis=seg('dial')==='Yes';
+  var bmi=(kg!==null&&cm!==null)?kg/Math.pow(cm/100,2):null;
+  var egfr=(age!==null&&scr!==null&&sx)?calcEGFR(scr,age,female,race):null;
+  var crcl=(age!==null&&kg!==null&&scr!==null&&sx)?cockcroftGault(age,kg,female,scr):null;
+
+  $('wtDeriv').textContent = kg!==null?('= '+kg.toFixed(1)+' kg'):'';
+  $('sBmi').textContent = bmi!==null?bmi.toFixed(1):'—';
+  $('sGfr').textContent = egfr!==null?egfr.toFixed(0):'—';
+  $('sCrcl').textContent = crcl!==null?crcl.toFixed(0):'—';
+  var pid=$('pid').value.trim();
+  $('printmeta').textContent = (pid?('Patient: '+pid+'  ·  '):'')+'Generated '+new Date().toLocaleString('en-US');
+
+  /* range sanity */
+  var warns=[];
+  if(kg!==null&&(kg>250||kg<30))warns.push('weight');
+  if(scr!==null&&scr>15)warns.push('creatinine');
+  if(age!==null&&age<18)warns.push('age');
+  $('rangeFlag').textContent = warns.length?('Verify — '+warns.join(', ')+' outside typical range.'):'';
+  $('rangeFlag').className = 'flag'+(warns.length?' warn':'');
+
+  /* HEPARIN */
+  if(kg===null){$('hepDiag').textContent=$('hepInt').textContent='—';$('hepDiagR').textContent=$('hepIntR').textContent='';$('hepErr').textContent='Enter weight.';}
+  else{$('hepErr').textContent='';var d=heparinDose(kg,50),i=heparinDose(kg,70);
+    $('hepDiag').textContent=fmt(Math.round(d));$('hepInt').textContent=fmt(Math.round(i));
+    $('hepDiagR').textContent='≈ '+fmt(round100(d))+' U';$('hepIntR').textContent='≈ '+fmt(round100(i))+' U';}
+
+  /* ACT */
+  var actTarget=num('actTarget'), actMeas=num('actMeasured'), actUkg=num('actUkg'), aChip=$('actChip');
+  if(actMeas===null||actTarget===null||actTarget<=0){aChip.className='chip lg neutral';aChip.textContent='Enter ACT';setNum('actRebolus','—','neutral');$('actFlag').textContent='';$('actErr').textContent=(actTarget!==null&&actTarget<=0?'Target must be > 0.':'');}
+  else if(actMeas>=actTarget){aChip.className='chip lg good';aChip.textContent='At target';setNum('actRebolus','0','good');$('actFlag').textContent='ACT ≥ target ('+actTarget+' s) — proceed.';$('actFlag').className='flag';$('actErr').textContent='';}
+  else{aChip.className='chip lg bad';aChip.textContent='Below target';$('actErr').textContent='';
+    if(kg!==null&&actUkg!==null&&actUkg>0){var rb=actRebolus(kg,actUkg);setNum('actRebolus',fmt(rb),'bad');$('actFlag').textContent='Low by '+(actTarget-actMeas)+' s. Suggest '+fmt(rb)+' U ('+actUkg+' U/kg); recheck in ~5 min.';$('actFlag').className='flag warn';}
+    else{setNum('actRebolus','—','bad');$('actFlag').textContent='Enter weight and a valid U/kg to estimate re-bolus.';$('actFlag').className='flag warn';}}
+
+  /* CONTRAST */
+  var mult=parseFloat($('contrastRule').value);$('cMultLab').textContent=mult;var cM=[];
+  if(kg===null)cM.push('weight'); if(scr===null)cM.push('creatinine'); if(egfr===null)cM.push('age+sex');
+  var cChip=$('cChip'), used=num('cUsed'); if(used===null||used<0)used=0;
+  $('cUsedVal').textContent=fmt(used);
+  $('cDialFlag').textContent = dialysis?'Dialysis / anuric: limit formulas not validated — minimize contrast and coordinate dialysis timing per protocol.':'';
+  $('cDialFlag').className = dialysis?'flag warn':'flag';
+  var cMaxVal=null;
+  if(dialysis){setNum('cMax','n/a','neutral');$('cWt').textContent=$('cGfr').textContent='n/a';cChip.style.display='none';$('cErr').textContent='';}
+  else if(cM.length){setNum('cMax','—','neutral');$('cWt').textContent=$('cGfr').textContent='—';cChip.style.display='none';$('cErr').textContent='Enter '+cM.join(', ')+'.';}
+  else{$('cErr').textContent='';var c=maxContrast(kg,scr,egfr,mult);cMaxVal=c.max;setNum('cMax',c.max.toFixed(0),'neutral');$('cWt').textContent=c.wt.toFixed(0);$('cGfr').textContent=c.gfr.toFixed(0);
+    cChip.style.display='';
+    if(c.max===300){cChip.className='chip warn';cChip.textContent='300 mL cap';}
+    else{cChip.className='chip neutral';cChip.textContent=(c.wt<c.gfr?'weight-limited':'eGFR-limited');}}
+  var bar=$('cUsedBar');
+  if(cMaxVal){var pct=Math.min(100,used/cMaxVal*100);bar.style.width=pct+'%';bar.style.background=pct>=90?'var(--bad)':(pct>=70?'var(--warn)':'var(--good)');$('cPct').textContent=Math.round(pct)+'%';}
+  else{bar.style.width=(used>0?100:0)+'%';bar.style.background='var(--muted)';$('cPct').textContent='—';}
+
+  /* DRUGS */
+  if(kg===null||crcl===null){$('drugCrcl').textContent='Weight-based, renal-adjusted.';$('drugList').innerHTML='';$('drugErr').textContent='Enter age, sex, weight, creatinine.';}
+  else{$('drugErr').textContent='';
+    $('drugCrcl').innerHTML='Dosing weight <strong>'+kg.toFixed(1)+' kg</strong> · CrCl <strong>'+crcl.toFixed(0)+' mL/min</strong>'+(dialysis?' · <strong>dialysis</strong>':'');
+    var b=bivalirudin(kg,crcl,dialysis), e=eptifibatide(kg,crcl,dialysis), t=tirofiban(kg,crcl,dialysis), g=cangrelor(kg);
+    var pick=$('drugPick').value, show=function(n){return pick==='all'||pick===n;}, html='';
+    if(show('Bivalirudin'))html+=drugCard('Bivalirudin','Bolus '+b.bolus_mg.toFixed(1)+' mg IV, then '+b.rate+' mg/kg/h = '+b.inf.toFixed(1)+' mg/h',
+      b.rate<1.75?('Reduced ('+(dialysis?'dialysis 0.25':'CrCl<30 → 1.0')+' mg/kg/h).'):'');
+    if(show('Eptifibatide')){if(e.ci){html+=drugCard('Eptifibatide','Contraindicated','Avoid in dialysis-dependent patients.');}
+      else{html+=drugCard('Eptifibatide','Bolus '+(e.bolus_mcg/1000).toFixed(2)+' mg IV ×2 (10 min apart), then '+e.rate+' mcg/kg/min = '+e.inf.toFixed(0)+' mcg/min',
+        (e.reduced?'Infusion halved (CrCl<50). ':'')+(kg>121?'Weight capped at 121 kg.':''));}}
+    if(show('Tirofiban (HDB)'))html+=drugCard('Tirofiban (HDB)','Bolus '+(t.bolus_mcg/1000).toFixed(2)+' mg IV, then '+t.rate+' mcg/kg/min = '+t.inf.toFixed(1)+' mcg/min',
+      (t.caution?'Severe renal impairment / dialysis — use with caution; many protocols avoid GP IIb/IIIa. ':'')+(t.reduced?'Infusion halved (CrCl≤60).':''));
+    if(show('Cangrelor'))html+=drugCard('Cangrelor','Bolus '+(g.bolus_mcg/1000).toFixed(2)+' mg IV, then '+g.rate+' mcg/kg/min = '+g.inf.toFixed(0)+' mcg/min','No renal adjustment.');
+    $('drugList').innerHTML=html;}
+
+  /* BLEED */
+  var hgb=hgbGdl(), bMiss=[], bChip=$('bleedChip');
+  if(age===null)bMiss.push('age'); if(!sx)bMiss.push('sex'); if(hgb===null)bMiss.push('hemoglobin');
+  if(bmi===null)bMiss.push('height'); if(egfr===null&&!dialysis)bMiss.push('creatinine');
+  var bleedRisk=null;
+  if(bMiss.length){setNum('bleed','—','neutral');bChip.style.display='none';$('bleedErr').textContent='Enter '+bMiss.join(', ')+'.';}
+  else{$('bleedErr').textContent='';bleedRisk=calcCathPCIBleedRisk({age:age,female:female,hgb:hgb,bmi:bmi,egfr:(egfr===null?999:egfr),dialysis:dialysis,stemi:seg('stemi')==='Yes',shock:seg('shock')==='Yes',priorPCI:seg('pci')==='Yes'});
+    var cls=bleedRisk<3.3?'good':(bleedRisk<10?'warn':'bad');setNum('bleed',bleedRisk.toFixed(1)+'%',cls);
+    bChip.style.display='';bChip.className='chip '+cls;bChip.textContent=bleedRisk<3.3?'Low':(bleedRisk<10?'Elevated':'High');}
+
+  /* MEHRAN */
+  var mChip=$('mChip'), mr=null;
+  $('mContrastEcho').textContent='Contrast used (from tracker): '+fmt(used)+' mL';
+  if(scr===null&&egfr===null&&!dialysis){setNum('mScore','—','neutral');mChip.style.display='none';$('mCin').textContent=$('mDialR').textContent='—';$('mErr').textContent='Enter creatinine.';}
+  else{$('mErr').textContent='';
+    mr=mehran({hypotension:seg('mHypo')==='Yes',iabp:seg('mIabp')==='Yes',chf:seg('mChf')==='Yes',
+      age:(age===null?0:age),anemia:seg('mAnemia')==='Yes',diabetes:seg('mDm')==='Yes',
+      contrastML:used,scr:scr,egfr:egfr,dialysis:dialysis});
+    setNum('mScore',mr.score,mr.cls);mChip.style.display='';mChip.className='chip '+mr.cls;mChip.textContent=mr.category;
+    $('mCin').textContent=mr.cinRisk;$('mDialR').textContent=mr.dialysisRisk;}
+
+  clearTimeout(srTimer);
+  srTimer=setTimeout(function(){
+    var parts=[];
+    if(kg!==null)parts.push('Heparin PCI '+fmt(Math.round(heparinDose(kg,70)))+' units');
+    if(actMeas!==null&&actTarget>0)parts.push('ACT '+(actMeas>=actTarget?'at target':'below target'));
+    if(cMaxVal)parts.push('Contrast '+used+' of '+cMaxVal.toFixed(0)+' mL');
+    if(bleedRisk!==null)parts.push('Bleeding risk '+bleedRisk.toFixed(1)+' percent');
+    if(mr)parts.push('Mehran '+mr.category);
+    $('srlive').textContent=parts.join('. ');
+  },700);
+}
+function drugCard(name,dose,adj){return '<div class="drug"><div class="name">'+name+'</div><div class="dose">'+dose+'</div>'+(adj?'<div class="adj">'+adj+'</div>':'')+'</div>';}
+applyUnits();recompute();
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>Anticoagulant / antiplatelet dosing · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card">
+    <h2>Anticoagulant / antiplatelet dosing</h2>
+    <p class="desc" id="drugCrcl">Weight-based, renal-adjusted.</p>
+    <div class="field" style="max-width:320px;margin-bottom:12px"><label for="drugPick">Show agent</label>
+      <select id="drugPick"><option value="all">All agents</option><option>Bivalirudin</option><option>Eptifibatide</option><option>Tirofiban (HDB)</option><option>Cangrelor</option></select></div>
+    <div id="drugList"></div>
+    <div class="err" id="drugErr"></div>
+    <div class="note"><strong>Verify against pharmacy protocol and current package inserts.</strong> Renal adjustment uses Cockcroft-Gault CrCl. Confirm infusion concentrations locally.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$;
+function drugCard(name,dose,adj){ return '<div class="drug"><div class="name">'+name+'</div><div class="dose">'+dose+'</div>'+(adj?'<div class="adj">'+adj+'</div>':'')+'</div>'; }
+function render(){
+  var P=CM.patient(), d=CM.derived(), kg=P.kg, crcl=d.crcl, dial=P.dial;
+  if(kg==null||crcl==null){ $('drugCrcl').textContent='Weight-based, renal-adjusted.';
+    $('drugList').innerHTML=''; $('drugErr').textContent='Enter age, sex, weight, creatinine.'; return; }
+  $('drugErr').textContent='';
+  $('drugCrcl').innerHTML='Dosing weight <strong>'+kg.toFixed(1)+' kg</strong> · CrCl <strong>'+crcl.toFixed(0)+' mL/min</strong>'+(dial?' · <strong>dialysis</strong>':'');
+  var b=CM.F.bivalirudin(kg,crcl,dial), e=CM.F.eptifibatide(kg,crcl,dial),
+      t=CM.F.tirofiban(kg,crcl,dial), g=CM.F.cangrelor(kg);
+  var pick=$('drugPick').value, show=function(n){return pick==='all'||pick===n;}, html='';
+  if(show('Bivalirudin'))html+=drugCard('Bivalirudin','Bolus '+b.bolus_mg.toFixed(1)+' mg IV, then '+b.rate+' mg/kg/h = '+b.inf.toFixed(1)+' mg/h',
+    b.rate<1.75?('Reduced ('+(dial?'dialysis 0.25':'CrCl<30 → 1.0')+' mg/kg/h).'):'');
+  if(show('Eptifibatide')){ if(e.ci){ html+=drugCard('Eptifibatide','Contraindicated','Avoid in dialysis-dependent patients.'); }
+    else{ html+=drugCard('Eptifibatide','Bolus '+(e.bolus_mcg/1000).toFixed(2)+' mg IV ×2 (10 min apart), then '+e.rate+' mcg/kg/min = '+e.inf.toFixed(0)+' mcg/min',
+      (e.reduced?'Infusion halved (CrCl<50). ':'')+(e.capped?'Weight capped at 121 kg.':'')); } }
+  if(show('Tirofiban (HDB)'))html+=drugCard('Tirofiban (HDB)','Bolus '+(t.bolus_mcg/1000).toFixed(2)+' mg IV, then '+t.rate+' mcg/kg/min = '+t.inf.toFixed(1)+' mcg/min',
+    (t.caution?'Severe renal impairment / dialysis — use with caution; many protocols avoid GP IIb/IIIa. ':'')+(t.reduced?'Infusion halved (CrCl≤60).':''));
+  if(show('Cangrelor'))html+=drugCard('Cangrelor','Bolus '+(g.bolus_mcg/1000).toFixed(2)+' mg IV, then '+g.rate+' mcg/kg/min = '+g.inf.toFixed(0)+' mcg/min','No renal adjustment.');
+  $('drugList').innerHTML=html;
+}
+CM.init({title:'Anticoagulant / antiplatelet dosing', copy:function(){
+  var L=['Clara Maass CMC — '+$('drugCrcl').textContent.replace(/\s+/g,' ')];
+  document.querySelectorAll('#drugList .drug').forEach(function(dv){
+    L.push('• '+dv.querySelector('.name').textContent+': '+dv.querySelector('.dose').textContent); });
+  L.push('Decision-support only; verify per protocol. '+new Date().toLocaleString('en-US'));
+  return L.join('\n');
+}});
+$('drugPick').addEventListener('change',render);
+CM.onChange(render); render();
+</script>
+</body>
+</html>

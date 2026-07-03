@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/app.css">
+<title>Formula self-test · Cath Lab Tools</title>
+<style>
+  .trow{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+  .trow:last-child{border-bottom:0}
+  .trow .st{flex:0 0 52px;font-weight:800}
+  .trow .st.ok{color:var(--good)} .trow .st.no{color:var(--bad)}
+  .trow .dt{color:var(--muted);font-size:.78rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+  <div class="card">
+    <h2>Formula self-test</h2>
+    <p class="desc">Every clinical formula checked against independently computed expected values. All rows must be green before this build is used.</p>
+    <div class="hero" style="margin-bottom:10px">
+      <span class="chip lg neutral" id="tSummary">Running…</span>
+    </div>
+    <div id="tList"></div>
+    <div class="note">Formula library v<span id="tVer"></span>, last reviewed <span id="tRev"></span>. If any test fails, do not use the affected calculator; report it so the formula library can be reviewed.</div>
+  </div>
+  <div id="shell-bottom"></div>
+</div>
+<script src="assets/core.js"></script>
+<script src="assets/tests.js"></script>
+<script>
+CM.init({title:'Formula self-test'});
+document.getElementById('tVer').textContent=CM.VERSION;
+document.getElementById('tRev').textContent=CM.REVIEWED;
+var res=CM_TESTS(CM.F), fails=res.filter(function(r){return !r.pass;});
+var sum=document.getElementById('tSummary');
+sum.className='chip lg '+(fails.length?'bad':'good');
+sum.textContent=fails.length? (fails.length+' of '+res.length+' FAILED') : ('All '+res.length+' tests pass');
+document.getElementById('tList').innerHTML=res.map(function(r){
+  return '<div class="trow"><span class="st '+(r.pass?'ok':'no')+'">'+(r.pass?'PASS':'FAIL')+'</span>'
+    +'<span>'+r.name+(r.pass?'':' <span class="dt">— '+r.detail+'</span>')+'</span></div>';
+}).join('');
+</script>
+</body>
+</html>

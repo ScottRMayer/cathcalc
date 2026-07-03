@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="stylesheet" href="assets/app.css">
+<title>Cath Lab Tools · Clara Maass Medical Center</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <input class="libsearch" id="q" type="search" placeholder="Search calculators… (e.g. heparin, TIMI, contrast)" aria-label="Search calculators">
+
+  <div id="recentWrap" style="display:none">
+    <div class="libgroup">Recently used</div>
+    <div class="libgrid" id="recentGrid"></div>
+  </div>
+
+  <nav id="library" aria-label="Calculator library">
+    <div class="libgroup g-dose">Dosing &amp; anticoagulation</div>
+    <div class="libgrid">
+      <a class="libcard cat-dose" href="calc/heparin.html" data-k="heparin bolus units weight ufh"><span class="t">Heparin dose</span><span class="d">Weight-based diagnostic &amp; PCI bolus</span></a>
+      <a class="libcard cat-dose" href="calc/act.html" data-k="act activated clotting time rebolus target hemochron"><span class="t">ACT target &amp; re-bolus</span><span class="d">Status vs target, suggested re-bolus</span></a>
+      <a class="libcard cat-dose" href="calc/drugs.html" data-k="bivalirudin eptifibatide tirofiban cangrelor integrilin angiomax gp iib iiia antiplatelet infusion drip renal"><span class="t">Anticoagulant / antiplatelet dosing</span><span class="d">Bivalirudin · eptifibatide · tirofiban · cangrelor, renal-adjusted</span></a>
+      <a class="libcard cat-dose" href="calc/drips.html" data-k="drip pump rate vasoactive pressor levophed norepinephrine epinephrine dopamine dobutamine phenylephrine neo nitroglycerin nicardipine milrinone vasopressin mcg kg min ml hr infusion"><span class="t">Vasoactive drips</span><span class="d">Dose ↔ mL/h for 9 agents, editable concentrations</span></a>
+    </div>
+
+    <div class="libgroup g-hemo">Hemodynamics</div>
+    <div class="libgrid">
+      <a class="libcard cat-hemo" href="calc/hemodynamics.html" data-k="hemodynamics fick cardiac output index bsa svr pvr wood gorlin hakki valve area aortic stenosis mitral shunt qp qs step up flamm pulmonary hypertension right heart cath swan"><span class="t">Hemodynamics suite</span><span class="d">Fick CO/CI · SVR/PVR · Gorlin &amp; Hakki valve area · Qp:Qs · PH pattern</span></a>
+    </div>
+
+    <div class="libgroup g-contrast">Contrast &amp; renal</div>
+    <div class="libgrid">
+      <a class="libcard cat-contrast" href="calc/contrast.html" data-k="contrast volume max limit tracker cin gurm cigarroa dye"><span class="t">Contrast volume</span><span class="d">Max limit + running tracker (feeds Mehran)</span></a>
+      <a class="libcard cat-contrast" href="calc/mehran.html" data-k="mehran ci-aki cin contrast nephropathy kidney"><span class="t">Mehran CI-AKI score</span><span class="d">Contrast nephropathy risk</span></a>
+    </div>
+
+    <div class="libgroup g-risk">Risk scores</div>
+    <div class="libgrid">
+      <a class="libcard cat-risk" href="calc/bleed-risk.html" data-k="bleeding risk cathpci acc ncdr hemorrhage"><span class="t">Bleeding risk (ACC CathPCI)</span><span class="d">Estimated post-PCI bleeding event</span></a>
+      <a class="libcard cat-risk" href="calc/timi.html" data-k="timi ua nstemi stemi acs mortality unstable angina"><span class="t">TIMI risk scores</span><span class="d">UA/NSTEMI (14-day) &amp; STEMI (30-day)</span></a>
+      <a class="libcard cat-risk" href="calc/zwolle.html" data-k="zwolle primary pci early discharge killip stemi"><span class="t">Zwolle score</span><span class="d">Early discharge after primary PCI</span></a>
+    </div>
+  </nav>
+
+  <div class="flag" id="noResults" style="display:none">No calculators match that search.</div>
+
+  <div id="shell-bottom"></div>
+</div>
+
+<script src="assets/core.js"></script>
+<script>
+CM.init({
+  title:'Cath Lab Tools',
+  desc:'Enter the patient once — every calculator shares it.',
+  home:true
+});
+/* recently used */
+(function(){
+  var rec=CM.recent(), grid=document.getElementById('recentGrid');
+  rec.forEach(function(href){
+    var card=document.querySelector('#library .libcard[href="'+href+'"]');
+    if(card)grid.appendChild(card.cloneNode(true));
+  });
+  if(grid.children.length)document.getElementById('recentWrap').style.display='';
+})();
+/* search */
+(function(){
+  var q=document.getElementById('q');
+  q.addEventListener('input',function(){
+    var t=q.value.trim().toLowerCase(), any=false;
+    document.querySelectorAll('.libcard').forEach(function(c){
+      var hit=!t || (c.textContent+' '+(c.getAttribute('data-k')||'')).toLowerCase().indexOf(t)>=0;
+      c.style.display=hit?'':'none'; if(hit)any=true;
+    });
+    document.querySelectorAll('.libgroup,.libgrid').forEach(function(g){
+      if(g.classList.contains('libgrid')){
+        var vis=g.querySelector('.libcard:not([style*="none"])');
+        g.style.display=vis?'':'none';
+        if(g.previousElementSibling&&g.previousElementSibling.classList.contains('libgroup'))
+          g.previousElementSibling.style.display=vis?'':'none';
+      }
+    });
+    document.getElementById('noResults').style.display=any?'none':'';
+  });
+})();
+</script>
+</body>
+</html>

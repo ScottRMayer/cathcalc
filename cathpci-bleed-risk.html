@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CathPCI Bleeding Risk Calculator</title>
+<!--
+  ============================================================================
+  CathPCI Post-Procedure Bleeding Risk Calculator
+  ----------------------------------------------------------------------------
+  Math reverse-engineered verbatim from the ACC tool at
+  https://tools.acc.org/CathPCIBleedRisk/ (assets/js/appviewmodel.js).
+  This is the ACC "pre-procedure" logistic-regression bleeding model.
+
+  MODEL
+    risk(%) = 100 * e^x / (1 + e^x)
+
+    x = -0.0884
+        + 0.0155  * min(age, 70)  + 0.02097 * max(0, age - 70)
+        + 0.9327  if STEMI (yes)
+        - 0.3474  * min(hgb, 13)   + 0.03236 * max(0, hgb - 13)   [hgb in g/dL]
+        + 0.4403  if sex = female
+        + 1.9807  if cardiogenic shock (yes)
+        - 0.04266 * min(bmi, 30)   - 0.00201 * max(0, bmi - 30)
+        + eGFR/dialysis term:
+              eGFR < 30  OR on dialysis -> 0.6309
+              30   <= eGFR <= 44.99     -> 0.5016
+              45   <= eGFR <= 59.99     -> 0.3346
+              eGFR >= 60               -> 0
+        - 0.2131  if prior PCI (yes)
+
+  Helper formulas (also verbatim from the ACC tool):
+    eGFR (MDRD, 186 form) =
+        186 * SCr^-1.154 * age^-0.203 * (0.742 if female) * (1.21 if Black)
+        (SCr in mg/dL; if µmol/L, divide by 88.4)
+    BMI = weight(kg) / height(m)^2
+
+  National average bleeding risk (for reference on the ACC tool): 3.3%
+  The pure function calcCathPCIBleedRisk() below returns the risk and can be
+  lifted straight into a multi-calculator page.
+  ============================================================================
+-->
+<style>
+  :root{
+    --bg:#ffffff; --ink:#1a2432; --muted:#5b6b7f; --line:#d8dee6;
+    --accent:#0b5cab; --accent-soft:#eaf2fb; --good:#1a7f4b; --warn:#b26a00; --bad:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:#f4f6f9;line-height:1.45}
+  .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}
+  h1{font-size:1.35rem;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:.86rem;margin:0 0 18px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .units{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+  .units button{border:1px solid var(--accent);background:#fff;color:var(--accent);
+    padding:6px 14px;border-radius:20px;cursor:pointer;font-size:.82rem}
+  .units button.on{background:var(--accent);color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 18px}
+  label{display:block;font-size:.8rem;font-weight:600;margin-bottom:4px}
+  .hint{font-weight:400;color:var(--muted);font-size:.74rem}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    font-size:.92rem;background:#fff;color:var(--ink)}
+  input:focus,select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .derived{font-size:.76rem;color:var(--muted);margin-top:4px;min-height:1em}
+  h2.sec{font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+    margin:2px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .result{display:flex;flex-wrap:wrap;align-items:baseline;gap:14px}
+  .bignum{font-size:2.6rem;font-weight:700;line-height:1}
+  .result .lab{font-size:.85rem;color:var(--muted)}
+  .natl{margin-top:8px;font-size:.82rem;color:var(--muted)}
+  .bar{height:12px;border-radius:6px;background:#e7ecf2;overflow:hidden;margin-top:12px;position:relative}
+  .bar > i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+  .err{color:var(--bad);font-size:.8rem;margin-top:8px;min-height:1em}
+  .foot{font-size:.72rem;color:var(--muted);margin-top:10px}
+  .foot a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CathPCI Bleeding Risk Calculator</h1>
+  <p class="sub">Estimated risk of a post-PCI bleeding event. Model replicated from the ACC CathPCI Bleed Risk tool.</p>
+
+  <div class="card">
+    <div class="units">
+      <span style="font-size:.8rem;font-weight:600;margin-right:4px">Units:</span>
+      <button id="uUS" class="on" type="button">US (lbs, mg/dL, g/dL)</button>
+      <button id="uSI" type="button">Metric / SI (kg, µmol/L, g/L)</button>
+    </div>
+
+    <h2 class="sec">Demographics</h2>
+    <div class="grid">
+      <div>
+        <label>Age <span class="hint">(years)</span></label>
+        <input id="age" type="number" min="18" max="120" step="1" placeholder="e.g. 68">
+      </div>
+      <div>
+        <label>Sex at birth</label>
+        <select id="sex"><option value="">Select…</option><option value="M">Male</option><option value="F">Female</option></select>
+      </div>
+      <div>
+        <label>Race <span class="hint">(for eGFR)</span></label>
+        <select id="race">
+          <option value="1">White / Other</option>
+          <option value="1">Asian</option>
+          <option value="1">American Indian or Alaska Native</option>
+          <option value="1.21">Black or African American</option>
+          <option value="1">Hispanic or Latino</option>
+          <option value="1">Native Hawaiian / Pacific Islander</option>
+        </select>
+      </div>
+    </div>
+
+    <h2 class="sec" style="margin-top:20px">Body size &rarr; BMI</h2>
+    <div class="grid">
+      <div id="wrapHeightUS">
+        <label>Height</label>
+        <div class="row2">
+          <input id="ft" type="number" min="1" max="8" step="1" placeholder="ft">
+          <input id="in" type="number" min="0" max="11" step="1" placeholder="in">
+        </div>
+      </div>
+      <div id="wrapHeightSI" style="display:none">
+        <label>Height <span class="hint">(cm)</span></label>
+        <input id="cm" type="number" min="80" max="250" step="0.1" placeholder="e.g. 175">
+      </div>
+      <div>
+        <label>Weight <span class="hint" id="wLab">(lbs)</span></label>
+        <input id="wt" type="number" min="20" step="0.1" placeholder="weight">
+      </div>
+      <div>
+        <label>BMI <span class="hint">(auto — or enter manually)</span></label>
+        <input id="bmi" type="number" min="10" max="80" step="0.1" placeholder="kg/m²">
+        <div class="derived" id="bmiDeriv"></div>
+      </div>
+    </div>
+
+    <h2 class="sec" style="margin-top:20px">Renal function &rarr; eGFR</h2>
+    <div class="grid">
+      <div>
+        <label>Serum creatinine <span class="hint" id="scrLab">(mg/dL)</span></label>
+        <input id="scr" type="number" min="0.1" step="0.01" placeholder="e.g. 1.0">
+      </div>
+      <div>
+        <label>eGFR <span class="hint">(auto MDRD — or enter manually)</span></label>
+        <input id="gfr" type="number" min="1" step="0.1" placeholder="mL/min/1.73m²">
+        <div class="derived" id="gfrDeriv"></div>
+      </div>
+      <div>
+        <label>On dialysis?</label>
+        <select id="dial"><option value="No">No</option><option value="Yes">Yes</option></select>
+      </div>
+    </div>
+
+    <h2 class="sec" style="margin-top:20px">Clinical</h2>
+    <div class="grid">
+      <div>
+        <label>Baseline hemoglobin <span class="hint" id="hgbLab">(g/dL)</span></label>
+        <input id="hgb" type="number" min="3" step="0.1" placeholder="e.g. 13.5">
+      </div>
+      <div>
+        <label>STEMI at presentation?</label>
+        <select id="stemi"><option value="No">No</option><option value="Yes">Yes</option></select>
+      </div>
+      <div>
+        <label>Cardiogenic shock?</label>
+        <select id="shock"><option value="No">No</option><option value="Yes">Yes</option></select>
+      </div>
+      <div>
+        <label>Prior PCI?</label>
+        <select id="pci"><option value="No">No</option><option value="Yes">Yes</option></select>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card">
+    <div class="result">
+      <span class="bignum" id="out">—</span>
+      <span class="lab">estimated post-PCI bleeding-event risk</span>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="natl">National average for this procedure: <strong>3.3%</strong></div>
+    <div class="foot">
+      Model source: <a href="https://tools.acc.org/CathPCIBleedRisk/" target="_blank" rel="noopener">ACC CathPCI Bleed Risk tool</a>.
+      For clinical decision support only; not a substitute for clinical judgment.
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- PURE MODEL (drop this into any page) ------------------------- */
+/**
+ * CathPCI post-procedure bleeding risk.
+ * @param {Object} p
+ * @param {number} p.age            years
+ * @param {boolean} p.female
+ * @param {number} p.hgb            baseline hemoglobin in g/dL
+ * @param {number} p.bmi            kg/m^2
+ * @param {number} p.egfr           mL/min/1.73m^2
+ * @param {boolean} p.dialysis
+ * @param {boolean} p.stemi
+ * @param {boolean} p.shock         cardiogenic shock
+ * @param {boolean} p.priorPCI
+ * @returns {number} risk as a percentage (0-100)
+ */
+function calcCathPCIBleedRisk(p){
+  var x = -0.0884;
+  x += 0.0155 * Math.min(p.age, 70) + 0.02097 * Math.max(0, p.age - 70);
+  x += p.stemi ? 0.9327 : 0;
+  x += -0.3474 * Math.min(p.hgb, 13) + 0.03236 * Math.max(0, p.hgb - 13);
+  x += p.female ? 0.4403 : 0;
+  x += p.shock ? 1.9807 : 0;
+  x += -0.04266 * Math.min(p.bmi, 30) + -0.00201 * Math.max(0, p.bmi - 30);
+  if (p.egfr < 29.99 || p.dialysis)      x += 0.6309;
+  else if (p.egfr >= 45 && p.egfr <= 59.99) x += 0.3346;
+  else if (p.egfr >= 30 && p.egfr <= 44.99) x += 0.5016;
+  x += p.priorPCI ? -0.2131 : 0;
+  return 100 * Math.exp(x) / (1 + Math.exp(x));
+}
+
+/** eGFR via MDRD (186 form) — matches the ACC tool. SCr in mg/dL. */
+function calcEGFR(scr_mgdl, age, female, raceFactor){
+  return 186 * Math.pow(scr_mgdl, -1.154) * Math.pow(age, -0.203)
+             * (female ? 0.742 : 1) * raceFactor;
+}
+/* ------------------------------------------------------------------------ */
+
+var SI = false; // false = US units, true = metric/SI
+var $ = function(id){return document.getElementById(id);};
+var fields = ['age','sex','race','ft','in','cm','wt','bmi','scr','gfr','dial','hgb','stemi','shock','pci'];
+fields.forEach(function(id){
+  var el = $(id); if(!el) return;
+  el.addEventListener('input', recompute);
+  el.addEventListener('change', recompute);
+});
+
+function setUnits(si){
+  SI = si;
+  $('uUS').classList.toggle('on', !si);
+  $('uSI').classList.toggle('on', si);
+  $('wrapHeightUS').style.display = si ? 'none' : '';
+  $('wrapHeightSI').style.display = si ? '' : 'none';
+  $('wLab').textContent  = si ? '(kg)'    : '(lbs)';
+  $('scrLab').textContent= si ? '(µmol/L)': '(mg/dL)';
+  $('hgbLab').textContent= si ? '(g/L)'   : '(g/dL)';
+  recompute();
+}
+$('uUS').addEventListener('click', function(){ setUnits(false); });
+$('uSI').addEventListener('click', function(){ setUnits(true);  });
+
+function num(id){ var v = parseFloat($(id).value); return isNaN(v) ? null : v; }
+
+/* Auto BMI (mirrors ACC tool). Manual BMI entry overrides auto. */
+function autoBMI(){
+  var wt = num('wt'); if(wt === null) return null;
+  var h_m = null;
+  if(SI){
+    var cm = num('cm'); if(cm === null) return null;
+    h_m = cm * 0.01;
+  } else {
+    var ft = num('ft'); if(ft === null) return null;
+    var inch = num('in') || 0;
+    h_m = ft * 0.3048 + inch * 0.0254;
+    wt = wt / 2.20462; // lbs -> kg
+  }
+  if(h_m <= 0) return null;
+  return wt / (h_m * h_m);
+}
+
+/* Auto eGFR (mirrors ACC tool). Manual eGFR entry overrides auto. */
+function autoEGFR(){
+  var age = num('age'), scrRaw = num('scr'), sex = $('sex').value, race = parseFloat($('race').value);
+  if(age === null || scrRaw === null || !sex) return null;
+  var scr = SI ? scrRaw / 88.4 : scrRaw; // µmol/L -> mg/dL
+  return calcEGFR(scr, age, sex === 'F', race);
+}
+
+function recompute(){
+  $('err').textContent = '';
+
+  // BMI: manual field wins, else auto
+  var bmi = num('bmi');
+  var abmi = autoBMI();
+  if(bmi === null && abmi !== null){ bmi = abmi; }
+  $('bmiDeriv').textContent = abmi !== null ? ('Calculated BMI: ' + abmi.toFixed(1) + ' kg/m²') : '';
+
+  // eGFR: manual field wins, else auto
+  var egfr = num('gfr');
+  var aegfr = autoEGFR();
+  if(egfr === null && aegfr !== null){ egfr = aegfr; }
+  $('gfrDeriv').textContent = aegfr !== null ? ('Calculated eGFR: ' + aegfr.toFixed(1) + ' mL/min/1.73m²') : '';
+
+  var age = num('age');
+  var sex = $('sex').value;
+  var hgbRaw = num('hgb');
+  var hgb = (hgbRaw === null) ? null : (SI ? hgbRaw / 10 : hgbRaw); // g/L -> g/dL
+
+  var missing = [];
+  if(age === null) missing.push('age');
+  if(!sex) missing.push('sex');
+  if(hgb === null) missing.push('hemoglobin');
+  if(bmi === null) missing.push('BMI (or height + weight)');
+  if(egfr === null && $('dial').value !== 'Yes') missing.push('eGFR (or creatinine, or dialysis = Yes)');
+
+  if(missing.length){
+    $('out').textContent = '—';
+    $('bar').style.width = '0';
+    $('err').textContent = 'Enter: ' + missing.join(', ') + '.';
+    return;
+  }
+
+  var risk = calcCathPCIBleedRisk({
+    age: age,
+    female: sex === 'F',
+    hgb: hgb,
+    bmi: bmi,
+    egfr: (egfr === null ? 999 : egfr),
+    dialysis: $('dial').value === 'Yes',
+    stemi: $('stemi').value === 'Yes',
+    shock: $('shock').value === 'Yes',
+    priorPCI: $('pci').value === 'Yes'
+  });
+
+  $('out').textContent = risk.toFixed(1) + '%';
+  var pct = Math.max(0, Math.min(100, risk));
+  var bar = $('bar');
+  bar.style.width = pct + '%';
+  bar.style.background = risk < 3.3 ? 'var(--good)' : (risk < 10 ? 'var(--warn)' : 'var(--bad)');
+}
+
+recompute();
+</script>
+</body>
+</html>

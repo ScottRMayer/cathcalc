@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>Contrast volume · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card">
+    <h2>Contrast volume</h2>
+    <p class="desc">Max limit and running total used. The tracker total is shared with the Mehran score.</p>
+    <div class="field" style="max-width:340px;margin-bottom:14px"><label for="contrastRule">eGFR limit rule</label>
+      <select id="contrastRule"><option value="3">3 × eGFR (common)</option><option value="3.7">3.7 × eGFR (Gurm &lt;3.7)</option><option value="1">1 × eGFR (most conservative)</option></select></div>
+    <div class="hero">
+      <span><span class="num neutral" id="cMax">—</span> <span class="unit">mL max</span></span>
+      <span class="chip neutral" id="cChip" style="display:none"></span>
+    </div>
+    <div class="dual" style="margin-top:14px">
+      <div class="box"><div class="lab">Weight ÷ creatinine</div><div class="big" style="font-size:1.35rem"><span id="cWt">—</span> <span class="u">mL</span></div></div>
+      <div class="box"><div class="lab"><span id="cMultLab">3</span> × eGFR</div><div class="big" style="font-size:1.35rem"><span id="cGfr">—</span> <span class="u">mL</span></div></div>
+    </div>
+    <div class="flag" id="cDialFlag"></div>
+    <div class="err" id="cErr"></div>
+    <div class="subsec">Contrast used</div>
+    <div class="trkrow">
+      <input id="cUsed" type="number" inputmode="numeric" step="1" min="0" autocomplete="off" placeholder="0" aria-label="Contrast used (mL)">
+      <button class="trkbtn" type="button" data-add="1">+1</button>
+      <button class="trkbtn" type="button" data-add="2">+2</button>
+      <button class="trkbtn" type="button" data-add="5">+5</button>
+      <button class="trkbtn" type="button" data-add="10">+10</button>
+      <button class="trkbtn" type="button" data-add="20">+20</button>
+      <button class="trkbtn" type="button" data-add="50">+50</button>
+      <button class="trkbtn minus" type="button" data-add="-10">−10</button>
+      <button class="trkbtn minus" type="button" id="cUsedReset">Reset</button>
+    </div>
+    <div class="trkbar"><i id="cUsedBar"></i></div>
+    <div class="trkinfo"><span id="cUsedVal">0</span> mL used · <span id="cPct">—</span> of max</div>
+    <div class="note">2.5 × kg ÷ SCr (halved Cigarroa) vs eGFR rule; absolute cap 300 mL. Used total also feeds the Mehran score.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$, syncing=false;
+function render(){
+  var P=CM.patient(), d=CM.derived(), used=CM.contrastUsed();
+  if(!syncing){ $('cUsed').value=used||''; }
+  var mult=parseFloat($('contrastRule').value); $('cMultLab').textContent=mult;
+  var miss=[];
+  if(P.kg==null)miss.push('weight'); if(P.scr==null)miss.push('creatinine'); if(d.egfr==null)miss.push('age+sex');
+  var cChip=$('cChip'); $('cUsedVal').textContent=CM.fmt(used);
+  $('cDialFlag').textContent=P.dial?'Dialysis / anuric: limit formulas not validated — minimize contrast and coordinate dialysis timing per protocol.':'';
+  $('cDialFlag').className=P.dial?'flag warn':'flag';
+  var cMaxVal=null;
+  if(P.dial){ CM.setNum('cMax','n/a','neutral'); $('cWt').textContent=$('cGfr').textContent='n/a'; cChip.style.display='none'; $('cErr').textContent=''; }
+  else if(miss.length){ CM.setNum('cMax','—','neutral'); $('cWt').textContent=$('cGfr').textContent='—'; cChip.style.display='none'; $('cErr').textContent='Enter '+miss.join(', ')+'.'; }
+  else{ $('cErr').textContent='';
+    var c=CM.F.maxContrast(P.kg,P.scr,d.egfr,mult); cMaxVal=c.max;
+    CM.setNum('cMax',c.max.toFixed(0),'neutral'); $('cWt').textContent=c.wt.toFixed(0); $('cGfr').textContent=c.gfr.toFixed(0);
+    cChip.style.display='';
+    if(c.max===300){ cChip.className='chip warn'; cChip.textContent='300 mL cap'; }
+    else{ cChip.className='chip neutral'; cChip.textContent=(c.wt<c.gfr?'weight-limited':'eGFR-limited'); } }
+  var bar=$('cUsedBar');
+  if(cMaxVal){ var pct=Math.min(100,used/cMaxVal*100);
+    bar.style.width=pct+'%'; bar.style.background=pct>=90?'var(--bad)':(pct>=70?'var(--warn)':'var(--good)');
+    $('cPct').textContent=Math.round(pct)+'%';
+    CM.announce('Contrast '+used+' of '+cMaxVal.toFixed(0)+' milliliters'); }
+  else{ bar.style.width=(used>0?100:0)+'%'; bar.style.background='var(--muted)'; $('cPct').textContent='—'; }
+}
+CM.init({title:'Contrast volume', copy:function(){
+  return 'Clara Maass CMC — Contrast: '+CM.contrastUsed()+' mL used / max '+$('cMax').textContent+' mL ('+new Date().toLocaleString('en-US')+')';
+}});
+$('contrastRule').addEventListener('change',render);
+$('cUsed').addEventListener('input',function(){ syncing=true;
+  var v=parseFloat(this.value); CM.setContrastUsed(isNaN(v)?0:v); syncing=false; });
+document.querySelectorAll('[data-add]').forEach(function(btn){ btn.addEventListener('click',function(){
+  CM.setContrastUsed(Math.max(0,CM.contrastUsed()+parseFloat(this.getAttribute('data-add')))); }); });
+$('cUsedReset').addEventListener('click',function(){ CM.setContrastUsed(0); });
+CM.onChange(render); render();
+</script>
+</body>
+</html>

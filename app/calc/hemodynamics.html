@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>Hemodynamics · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <!-- CARDIAC OUTPUT -->
+  <div class="card">
+    <h2>Cardiac output — Fick</h2>
+    <p class="desc">Hgb, weight, and height come from the shared patient. Sats as %.</p>
+    <div class="grid">
+      <div class="field"><label for="sao2">Arterial sat SaO₂ <span class="hint">(%)</span></label><input id="sao2" type="number" inputmode="decimal" step="0.1" min="20" max="100" placeholder="98"></div>
+      <div class="field"><label for="svo2">Mixed venous SvO₂ <span class="hint">(PA, %)</span></label><input id="svo2" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="70"></div>
+      <div class="field"><label for="vo2m2">VO₂ estimate <span class="hint">(mL/min/m²)</span></label><input id="vo2m2" type="number" inputmode="numeric" step="5" min="50" max="250" value="125"></div>
+      <div class="field"><label for="vo2meas">Measured VO₂ <span class="hint">(mL/min, overrides)</span></label><input id="vo2meas" type="number" inputmode="numeric" step="1" min="30" placeholder="optional"></div>
+      <div class="field"><label for="tdco">Thermodilution CO <span class="hint">(L/min, optional)</span></label><input id="tdco" type="number" inputmode="decimal" step="0.1" min="0.5" max="20" placeholder="optional"></div>
+    </div>
+    <div class="dual" style="margin-top:14px">
+      <div class="box"><div class="lab">BSA (Mosteller)</div><div class="big" style="font-size:1.35rem"><span id="hBsa">—</span> <span class="u">m²</span></div></div>
+      <div class="box"><div class="lab">Fick CO</div><div class="big" style="font-size:1.35rem"><span id="hFick">—</span> <span class="u">L/min</span></div></div>
+      <div class="box"><div class="lab">CO in use · <span id="hCoSrc">—</span></div><div class="big" style="font-size:1.35rem"><span id="hCo">—</span> <span class="u">L/min</span></div></div>
+      <div class="box"><div class="lab">Cardiac index</div><div class="big" style="font-size:1.35rem"><span id="hCi">—</span> <span class="u">L/min/m²</span></div></div>
+    </div>
+    <div class="flag" id="hCiFlag"></div>
+    <div class="err" id="hCoErr"></div>
+    <div class="note">Fick CO = VO₂ ÷ (1.36 × Hgb × 10 × (SaO₂ − SvO₂)). VO₂ estimated at 125 mL/min/m² unless measured (consider ~110 in elderly). Thermodilution, if entered, is used for downstream calculations. CI normal 2.5–4.0; &lt;2.2 with congestion suggests cardiogenic shock.</div>
+  </div>
+
+  <!-- PRESSURES & RESISTANCES -->
+  <div class="card">
+    <h2>Resistances &amp; PH assessment</h2>
+    <p class="desc">Uses CO from above.</p>
+    <div class="grid">
+      <div class="field"><label for="sbp">Systemic BP <span class="hint">(mmHg)</span></label><div class="row2"><input id="sbp" type="number" inputmode="numeric" min="30" max="300" placeholder="SBP" aria-label="Systolic BP"><input id="dbp" type="number" inputmode="numeric" min="10" max="200" placeholder="DBP" aria-label="Diastolic BP"></div><div class="derived" id="mapD"></div></div>
+      <div class="field"><label for="rap">RA mean <span class="hint">(mmHg)</span></label><input id="rap" type="number" inputmode="decimal" step="1" min="-5" max="50" placeholder="5"></div>
+      <div class="field"><label for="spap">PA pressure <span class="hint">(mmHg)</span></label><div class="row2"><input id="spap" type="number" inputmode="numeric" min="5" max="150" placeholder="sPAP" aria-label="PA systolic"><input id="dpap" type="number" inputmode="numeric" min="0" max="100" placeholder="dPAP" aria-label="PA diastolic"></div><div class="derived" id="mpapD"></div></div>
+      <div class="field"><label for="pcwp">PCWP mean <span class="hint">(mmHg)</span></label><input id="pcwp" type="number" inputmode="decimal" step="1" min="0" max="60" placeholder="10"></div>
+    </div>
+    <div class="dual" style="margin-top:14px">
+      <div class="box"><div class="lab">SVR</div><div class="big" style="font-size:1.35rem"><span id="hSvr">—</span> <span class="u">dyn·s·cm⁻⁵</span></div><div class="derived" id="hSvrW"></div></div>
+      <div class="box"><div class="lab">PVR</div><div class="big" style="font-size:1.35rem"><span id="hPvr">—</span> <span class="u">WU</span></div><div class="derived" id="hPvrD"></div></div>
+      <div class="box"><div class="lab">TPG / DPG</div><div class="big" style="font-size:1.35rem"><span id="hTpg">—</span> <span class="u">mmHg</span></div><div class="derived" id="hDpg"></div></div>
+    </div>
+    <div class="hero" style="margin-top:12px"><span class="chip neutral" id="phChip" style="display:none"></span></div>
+    <div class="err" id="hResErr"></div>
+    <div class="note">SVR normal 800–1200 dyn·s·cm⁻⁵ (10–15 WU); PVR normal &lt;2 WU. PH = mPAP &gt; 20 mmHg: pre-capillary if PCWP ≤ 15 &amp; PVR &gt; 2 WU; isolated post-capillary if PCWP &gt; 15 &amp; PVR ≤ 2; combined if both elevated (ESC/ERS 2022 definitions).</div>
+  </div>
+
+  <!-- VALVE AREA -->
+  <div class="card" id="valveCard">
+    <h2>Valve area — Gorlin &amp; Hakki</h2>
+    <p class="desc">Uses CO from above.</p>
+    <div class="grid">
+      <div class="field"><label id="lblValve">Valve</label>
+        <div class="seg" role="group" aria-labelledby="lblValve" data-field="valve"><button type="button" data-v="A" class="on" data-def>Aortic</button><button type="button" data-v="M">Mitral</button></div></div>
+      <div class="field"><label for="vGrad">Mean gradient <span class="hint">(mmHg)</span></label><input id="vGrad" type="number" inputmode="decimal" step="1" min="1" max="150" placeholder="40"></div>
+      <div class="field"><label for="vHr">Heart rate <span class="hint">(bpm)</span></label><input id="vHr" type="number" inputmode="numeric" step="1" min="20" max="220" placeholder="70"></div>
+      <div class="field"><label for="vPeriod"><span id="vPeriodLab">SEP</span> <span class="hint">(s/beat)</span></label><input id="vPeriod" type="number" inputmode="decimal" step="0.01" min="0.05" max="1" placeholder="0.33"></div>
+    </div>
+    <div class="dual" style="margin-top:14px">
+      <div class="box"><div class="lab">Gorlin</div><div class="big" style="font-size:1.35rem"><span id="vGorlin">—</span> <span class="u">cm²</span></div></div>
+      <div class="box"><div class="lab">Hakki (CO ÷ √ΔP)</div><div class="big" style="font-size:1.35rem"><span id="vHakki">—</span> <span class="u">cm²</span></div></div>
+    </div>
+    <div class="hero" style="margin-top:10px"><span class="chip neutral" id="vChip" style="display:none"></span></div>
+    <div class="err" id="vErr"></div>
+    <div class="note">SEP = systolic ejection period (aortic); DFP = diastolic filling period (mitral), in seconds per beat. Severe AS: AVA &lt; 1.0 cm² (mean ΔP ≥ 40); severe MS: MVA ≤ 1.5 cm². Gorlin underestimates area in low-flow states.</div>
+  </div>
+
+  <!-- SHUNT -->
+  <div class="card">
+    <h2>Shunt run — Qp:Qs</h2>
+    <p class="desc">Enter sats (%). Mixed venous auto-computes from SVC/IVC (Flamm) or enter directly.</p>
+    <div class="grid">
+      <div class="field"><label for="qSvc">SVC sat</label><input id="qSvc" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="70"></div>
+      <div class="field"><label for="qIvc">IVC sat</label><input id="qIvc" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="74"></div>
+      <div class="field"><label for="qMv">Mixed venous <span class="hint">(auto Flamm)</span></label><input id="qMv" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="auto"></div>
+      <div class="field"><label for="qPa">PA sat</label><input id="qPa" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="72"></div>
+      <div class="field"><label for="qPv">PV sat <span class="hint">(or SaO₂ if no R→L)</span></label><input id="qPv" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="98"></div>
+      <div class="field"><label for="qAo">Aortic / LV sat</label><input id="qAo" type="number" inputmode="decimal" step="0.1" min="10" max="100" placeholder="98"></div>
+    </div>
+    <div class="hero" style="margin-top:14px">
+      <span><span class="num sm neutral" id="qRatio">—</span> <span class="unit">Qp : Qs</span></span>
+      <span class="chip neutral" id="qChip" style="display:none"></span>
+    </div>
+    <div class="flag" id="qStep"></div>
+    <div class="err" id="qErr"></div>
+    <div class="note">Qp:Qs = (SaO₂ − MV) ÷ (PV − PA). Flamm MV = (3×SVC + IVC)/4. Significant O₂ step-up: ≥7% at atrial level, ≥5% at ventricular/PA level. Qp:Qs ≥ 1.5 generally significant L→R; &lt;1.0 suggests net R→L.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$, F=CM.F, valveCard=$('valveCard');
+function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
+function show(id,v,dp){ $(id).textContent = v==null||!isFinite(v) ? '—' : v.toFixed(dp==null?1:dp); }
+var mvTouched=false;
+
+function render(){
+  var P=CM.patient();
+  /* --- Fick / CO --- */
+  var bsa=(P.kg&&P.cm)?F.bsaMosteller(P.kg,P.cm):null;
+  show('hBsa',bsa,2);
+  var sao2=num('sao2'), svo2=num('svo2'), vo2m2=num('vo2m2'), vo2meas=num('vo2meas'), td=num('tdco');
+  var vo2 = vo2meas!=null ? vo2meas : (bsa&&vo2m2 ? vo2m2*bsa : null);
+  var fick=null, coErr=[];
+  if(P.hgb==null)coErr.push('hemoglobin (patient)');
+  if(bsa==null&&vo2meas==null)coErr.push('height+weight (for BSA) or measured VO₂');
+  if(sao2==null||svo2==null)coErr.push('SaO₂ and SvO₂');
+  if(!coErr.length && sao2>svo2 && vo2){
+    fick=F.fickCO(vo2,P.hgb,sao2/100,svo2/100);
+  }
+  show('hFick',fick,2);
+  var co = td!=null ? td : fick;
+  $('hCoSrc').textContent = td!=null ? 'thermodilution' : (fick!=null?'Fick':'—');
+  show('hCo',co,2);
+  var ci=(co&&bsa)?co/bsa:null;
+  show('hCi',ci,2);
+  $('hCoErr').textContent = (td==null&&coErr.length) ? 'For Fick: enter '+coErr.join(', ')+'.'
+    : (sao2!=null&&svo2!=null&&sao2<=svo2 ? 'SaO₂ must exceed SvO₂.' : '');
+  $('hCiFlag').textContent = ci==null ? '' :
+    (ci<2.2 ? 'CI < 2.2 — consistent with low output / cardiogenic shock physiology.' :
+     ci<2.5 ? 'CI mildly reduced (normal 2.5–4.0).' : 'CI within normal range (2.5–4.0).');
+  $('hCiFlag').className='flag'+(ci!=null&&ci<2.2?' warn':'');
+
+  /* --- Resistances --- */
+  var sbp=num('sbp'), dbp=num('dbp'), rap=num('rap'), spap=num('spap'), dpap=num('dpap'), pcwp=num('pcwp');
+  var map=(sbp!=null&&dbp!=null)?F.meanPressure(sbp,dbp):null;
+  var mpap=(spap!=null&&dpap!=null)?F.meanPressure(spap,dpap):null;
+  $('mapD').textContent=map!=null?('MAP = '+map.toFixed(0)):'';
+  $('mpapD').textContent=mpap!=null?('mPAP = '+mpap.toFixed(0)):'';
+  var resErr=[];
+  if(co==null)resErr.push('CO (above)');
+  if(map!=null&&rap!=null&&co){ var s=F.vascRes(map,rap,co);
+    $('hSvr').textContent=s.dynes.toFixed(0); $('hSvrW').textContent=s.wood.toFixed(1)+' WU'; }
+  else { $('hSvr').textContent='—'; $('hSvrW').textContent=''; }
+  var pvr=null;
+  if(mpap!=null&&pcwp!=null&&co){ var p=F.vascRes(mpap,pcwp,co); pvr=p.wood;
+    $('hPvr').textContent=p.wood.toFixed(1); $('hPvrD').textContent=p.dynes.toFixed(0)+' dyn·s·cm⁻⁵'; }
+  else { $('hPvr').textContent='—'; $('hPvrD').textContent=''; }
+  if(mpap!=null&&pcwp!=null){ $('hTpg').textContent=(mpap-pcwp).toFixed(0);
+    $('hDpg').textContent = dpap!=null ? ('DPG = '+(dpap-pcwp).toFixed(0)) : ''; }
+  else { $('hTpg').textContent='—'; $('hDpg').textContent=''; }
+  $('hResErr').textContent = (map!=null||mpap!=null)&&co==null ? 'Need CO from the card above.' : '';
+  var phChip=$('phChip');
+  if(mpap!=null&&pcwp!=null&&pvr!=null){
+    phChip.style.display='';
+    if(mpap<=20){ phChip.className='chip good'; phChip.textContent='No PH (mPAP ≤ 20)'; }
+    else if(pcwp<=15&&pvr>2){ phChip.className='chip bad'; phChip.textContent='Pre-capillary PH pattern'; }
+    else if(pcwp>15&&pvr<=2){ phChip.className='chip warn'; phChip.textContent='Isolated post-capillary PH pattern'; }
+    else if(pcwp>15&&pvr>2){ phChip.className='chip bad'; phChip.textContent='Combined pre/post-capillary PH pattern'; }
+    else { phChip.className='chip warn'; phChip.textContent='PH, unclassified pattern'; }
+  } else phChip.style.display='none';
+
+  /* --- Valve --- */
+  var mitral=CM.seg('valve',valveCard)==='M';
+  $('vPeriodLab').textContent=mitral?'DFP':'SEP';
+  var grad=num('vGrad'), hr=num('vHr'), per=num('vPeriod');
+  var vErr=[];
+  if(co==null)vErr.push('CO (above)');
+  var hak=(co&&grad)?F.hakki(co,grad):null;
+  show('vHakki',hak,2);
+  var gorv=(co&&grad&&hr&&per)?F.gorlin(co,hr,per,grad,mitral):null;
+  show('vGorlin',gorv,2);
+  $('vErr').textContent = grad!=null&&co==null ? 'Need CO from the card above.' : '';
+  var vChip=$('vChip'), area=(gorv!=null?gorv:hak);
+  if(area!=null){ vChip.style.display='';
+    var sev = mitral ? (area<=1.0?'Very severe MS':(area<=1.5?'Severe MS':'Not severe by area'))
+                     : (area<0.6?'Very severe AS':(area<1.0?'Severe AS':(area<1.5?'Moderate AS':'Mild AS')));
+    vChip.className='chip '+((mitral?area<=1.5:area<1.0)?'bad':(area<1.5?'warn':'good'));
+    vChip.textContent=sev+(gorv==null?' (Hakki)':''); }
+  else vChip.style.display='none';
+
+  /* --- Shunt --- */
+  var svc=num('qSvc'), ivc=num('qIvc');
+  if(!mvTouched){ $('qMv').value=(svc!=null&&ivc!=null)?F.flammMV(svc,ivc).toFixed(1):''; }
+  var mv=num('qMv'), pa=num('qPa'), pv=num('qPv'), ao=num('qAo');
+  if(pv==null&&ao!=null)pv=ao; /* assume no R→L if PV not sampled */
+  var qChip=$('qChip');
+  if(mv!=null&&pa!=null&&pv!=null&&ao!=null&&pv!==pa){
+    var q=F.qpqs(ao,mv,pv,pa);
+    $('qRatio').textContent=q.toFixed(2); $('qErr').textContent='';
+    qChip.style.display='';
+    if(q>=2){ qChip.className='chip bad'; qChip.textContent='Large L→R shunt'; }
+    else if(q>=1.5){ qChip.className='chip warn'; qChip.textContent='Significant L→R shunt'; }
+    else if(q<0.95){ qChip.className='chip bad'; qChip.textContent='Net R→L shunt'; }
+    else { qChip.className='chip good'; qChip.textContent='No significant shunt'; }
+    $('qStep').textContent=(pa-mv)>=5?('O₂ step-up MV→PA = '+(pa-mv).toFixed(1)+'%'):'';
+  } else { $('qRatio').textContent='—'; qChip.style.display='none'; $('qStep').textContent='';
+    $('qErr').textContent=(mv!=null||pa!=null||ao!=null)?'Need MV (or SVC+IVC), PA, and aortic sats.':''; }
+}
+CM.init({title:'Hemodynamics', copy:function(){
+  return 'Clara Maass CMC — Hemodynamics: BSA '+$('hBsa').textContent+' m² · CO '+$('hCo').textContent+' L/min ('+$('hCoSrc').textContent+') · CI '+$('hCi').textContent
+    +' · SVR '+$('hSvr').textContent+' dynes · PVR '+$('hPvr').textContent+' WU · Valve '+$('vGorlin').textContent+' cm² (Gorlin) · Qp:Qs '+$('qRatio').textContent
+    +' · '+new Date().toLocaleString('en-US');
+}, onClear:function(){
+  ['sao2','svo2','vo2meas','tdco','sbp','dbp','rap','spap','dpap','pcwp','vGrad','vHr','vPeriod','qSvc','qIvc','qMv','qPa','qPv','qAo'].forEach(function(id){$(id).value='';});
+  $('vo2m2').value='125'; mvTouched=false; CM.resetSegs(valveCard); render();
+}});
+['sao2','svo2','vo2m2','vo2meas','tdco','sbp','dbp','rap','spap','dpap','pcwp','vGrad','vHr','vPeriod','qSvc','qIvc','qPa','qPv','qAo'].forEach(function(id){ $(id).addEventListener('input',render); });
+$('qMv').addEventListener('input',function(){ mvTouched=this.value.trim()!==''; render(); });
+CM.wireSegs(valveCard,function(){ render(); });
+CM.onChange(render); render();
+</script>
+</body>
+</html>

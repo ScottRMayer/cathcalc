@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<title>TIMI risk scores · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card" id="uaCard">
+    <h2>TIMI — UA/NSTEMI</h2>
+    <p class="desc">14-day risk of death, MI, or urgent revascularization. Age auto-fills from the shared patient.</p>
+    <div id="uaRows">
+      <div class="ckrow"><div class="q">Age ≥ 65<span class="hint" id="uaAgeHint"></span></div><div class="seg" data-field="uAge"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">≥ 3 CAD risk factors<span class="hint">FHx, HTN, ↑chol, DM, active smoker</span></div><div class="seg" data-field="uRf"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Known CAD<span class="hint">Prior stenosis ≥ 50%</span></div><div class="seg" data-field="uCad"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">ASA use in past 7 days</div><div class="seg" data-field="uAsa"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Severe angina<span class="hint">≥ 2 episodes in 24 h</span></div><div class="seg" data-field="uAng"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">ST deviation ≥ 0.5 mm</div><div class="seg" data-field="uSt"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Elevated cardiac markers</div><div class="seg" data-field="uMk"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    </div>
+    <div class="subsec">Result</div>
+    <div class="hero">
+      <span><span class="num sm neutral" id="uaScore">0</span> <span class="unit">/ 7</span></span>
+      <span class="chip good" id="uaChip">Low</span>
+      <span class="side">14-day D/MI/UR <b id="uaRisk">4.7%</b></span>
+    </div>
+    <div class="cite">Antman EM, et al. JAMA 2000;284:835-42.</div>
+  </div>
+
+  <div class="card" id="stCard">
+    <h2>TIMI — STEMI</h2>
+    <p class="desc">30-day mortality. Age and weight auto-fill from the shared patient.</p>
+    <div id="stRows">
+      <div class="ckrow"><div class="q">Age<span class="hint" id="stAgeHint">65–74 = 2 pts · ≥75 = 3 pts</span></div>
+        <div class="seg" data-field="sAge" style="flex-basis:220px"><button type="button" data-v="0" class="on" data-def>&lt;65</button><button type="button" data-v="2">65–74</button><button type="button" data-v="3">≥75</button></div></div>
+      <div class="ckrow"><div class="q">DM, HTN, or angina history</div><div class="seg" data-field="sDha"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">SBP &lt; 100 mmHg<span class="hint">3 pts</span></div><div class="seg" data-field="sSbp"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Heart rate &gt; 100<span class="hint">2 pts</span></div><div class="seg" data-field="sHr"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Killip class II–IV<span class="hint">2 pts</span></div><div class="seg" data-field="sKil"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Weight &lt; 67 kg<span class="hint" id="stWtHint"></span></div><div class="seg" data-field="sWt"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Anterior STE or LBBB</div><div class="seg" data-field="sAnt"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="ckrow"><div class="q">Time to treatment &gt; 4 h</div><div class="seg" data-field="sT4"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    </div>
+    <div class="subsec">Result</div>
+    <div class="hero">
+      <span><span class="num sm neutral" id="stScore">0</span> <span class="unit">/ 14</span></span>
+      <span class="side">30-day mortality <b id="stRisk">0.8%</b></span>
+    </div>
+    <div class="cite">Morrow DA, et al. Circulation 2000;102:2031-7.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js"></script>
+<script>
+var $=CM.$, uaCard=$('uaCard'), stCard=$('stCard');
+var touched={uAge:false, sAge:false, sWt:false}; /* stop auto-fill after manual change */
+
+function setSeg(card,field,v){ card.querySelectorAll('.seg[data-field="'+field+'"] button').forEach(function(b){
+  var on=b.getAttribute('data-v')===v; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false'); }); }
+
+function autofill(){
+  var P=CM.patient();
+  if(P.age!=null){
+    $('uaAgeHint').textContent='Patient age: '+P.age;
+    if(!touched.uAge)setSeg(uaCard,'uAge',P.age>=65?'Yes':'No');
+    if(!touched.sAge)setSeg(stCard,'sAge',P.age>=75?'3':(P.age>=65?'2':'0'));
+  } else { $('uaAgeHint').textContent=''; }
+  if(P.kg!=null){
+    $('stWtHint').textContent='Patient: '+P.kg.toFixed(1)+' kg';
+    if(!touched.sWt)setSeg(stCard,'sWt',P.kg<67?'Yes':'No');
+  } else { $('stWtHint').textContent='1 pt'; }
+}
+function render(){
+  autofill();
+  var ua=CM.F.timiUA({
+    age65:CM.segYes('uAge',uaCard), riskFactors3:CM.segYes('uRf',uaCard), knownCAD:CM.segYes('uCad',uaCard),
+    asa7d:CM.segYes('uAsa',uaCard), severeAngina:CM.segYes('uAng',uaCard),
+    stDeviation:CM.segYes('uSt',uaCard), markers:CM.segYes('uMk',uaCard)});
+  CM.setNum('uaScore',ua.score,ua.cls);
+  var chip=$('uaChip'); chip.className='chip '+ua.cls; chip.textContent=ua.category;
+  $('uaRisk').textContent=ua.risk;
+
+  var agePts=parseInt(CM.seg('sAge',stCard)||'0',10);
+  var st=CM.F.timiSTEMI({
+    age:(agePts===3?75:(agePts===2?65:0)),
+    dmHtnAngina:CM.segYes('sDha',stCard), sbpLt100:CM.segYes('sSbp',stCard), hrGt100:CM.segYes('sHr',stCard),
+    killip24:CM.segYes('sKil',stCard), wtLt67:CM.segYes('sWt',stCard),
+    anteriorOrLBBB:CM.segYes('sAnt',stCard), timeGt4h:CM.segYes('sT4',stCard)});
+  CM.setNum('stScore',st.score,st.cls);
+  $('stRisk').textContent=st.risk;
+  CM.announce('TIMI UA NSTEMI '+ua.score+', STEMI '+st.score);
+}
+CM.init({title:'TIMI risk scores', copy:function(){
+  return 'Clara Maass CMC — TIMI UA/NSTEMI: '+$('uaScore').textContent+'/7 ('+$('uaChip').textContent+', 14-day '+$('uaRisk').textContent+') · TIMI STEMI: '+$('stScore').textContent+'/14 (30-day mortality '+$('stRisk').textContent+') · '+new Date().toLocaleString('en-US');
+}, onClear:function(){ CM.resetSegs(uaCard); CM.resetSegs(stCard); touched={uAge:false,sAge:false,sWt:false}; render(); }});
+function onSeg(field){
+  if(field==='uAge')touched.uAge=true;
+  if(field==='sAge')touched.sAge=true;
+  if(field==='sWt')touched.sWt=true;
+  render();
+}
+CM.wireSegs(uaCard,onSeg); CM.wireSegs(stCard,onSeg);
+CM.onChange(render); render();
+</script>
+</body>
+</html>
