@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.7.0';
+CM.VERSION = '3.9.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -203,31 +203,23 @@ F.dripDoseFromRate = function(mlh, unit, kg, concPerMl){
 };
 
 /* ============================ SHARED STATE ============================ */
-var BLANK = {pid:'',age:null,sex:'',race:1,dial:false,kg:null,cm:null,scr:null,hgb:null,_ts:null};
+var BLANK = {age:null,sex:'',race:1,dial:false,kg:null,cm:null,scr:null,hgb:null,_ts:null};
 
-/* ---- case slots ----
-   Each (room, case) is its own persistent patient that stays live across
-   reloads, so pre / intra / post nurses on the same device keep working the
-   same case. Storage is slot-scoped localStorage; the key scheme
-   (cm:{slot}:{name}) is what a shared backend will later sync per case. */
-CM.ROOMS = ['Cath Lab 1','Cath Lab 2'];
-CM.CASES = 10;
-function slotKeyFrom(room,c){ return (room===CM.ROOMS[1]?'CL2':'CL1')+'-'+c; }
-function loadSlot(){ try{ var j=JSON.parse(localStorage.getItem('cmSlot')||'null');
-    if(j&&j.room&&j.case) return {room:j.room, case:+j.case}; }catch(e){}
-  return {room:CM.ROOMS[0], case:1}; }
-var SLOT = loadSlot();
-CM.slot = function(){ return {room:SLOT.room, case:SLOT.case, key:slotKeyFrom(SLOT.room,SLOT.case)}; };
-CM.slotLabel = function(){ return SLOT.room+' · Case '+SLOT.case; };
-CM.storeKey = function(name){ return 'cm:'+slotKeyFrom(SLOT.room,SLOT.case)+':'+name; };
-CM.setSlot = function(room,c){ SLOT={room:room, case:+c};
-  try{ localStorage.setItem('cmSlot',JSON.stringify(SLOT)); }catch(e){}
-  location.reload(); };
-/* which case slots on this device already hold data (for the picker) */
-CM.slotUsed = function(room,c){ try{ return !!localStorage.getItem('cm:'+slotKeyFrom(room,c)+':patient'); }catch(e){ return false; } };
+/* ---- local state ----
+   Single independent user on their own device. The shared clinical values
+   (de-identified: age, sex, weight, height, labs) persist in localStorage so
+   they carry from one calculator to the next — "enter once, shared everywhere".
+   No identifiers, no room/case scoping, nothing leaves the device. */
+CM.storeKey = function(name){ return 'cm:'+name; };
 
-/* Patient data older than 12 h is treated as expired: the slot is purged so a
-   new shift can never dose off yesterday's patient. */
+/* One-time cleanup: purge legacy slot-scoped keys (and any old handoff free
+   text) left by earlier versions, so no stale data lingers after an upgrade. */
+(function(){ try{ for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i);
+  if(k && (/^cm:(CL1|CL2)-/.test(k) || k==='cmSlot' || /:handoff$/.test(k))) localStorage.removeItem(k);
+} }catch(e){} })();
+
+/* Entered values older than 12 h are treated as expired and cleared, so a stale
+   weight/creatinine can never silently drive a later calculation. */
 var STALE_MS = 12*60*60*1000;
 function loadP(){
   try{
@@ -237,7 +229,6 @@ function loadP(){
     if(p && p._ts && (Date.now()-p._ts)>STALE_MS){
       try{
         localStorage.removeItem(CM.storeKey('patient'));
-        localStorage.removeItem(CM.storeKey('handoff'));
         localStorage.removeItem(CM.storeKey('contrast'));
       }catch(e2){}
       return Object.assign({},BLANK);
@@ -250,7 +241,7 @@ function saveP(){ P._ts=Date.now(); try{ localStorage.setItem(CM.storeKey('patie
 CM.patient = function(){ return P; };
 CM.setPatient = function(k,v){ P[k]=v; saveP(); notify(); };
 CM.clearPatient = function(){ P=Object.assign({},BLANK);
-  try{ localStorage.removeItem(CM.storeKey('patient')); localStorage.removeItem(CM.storeKey('handoff')); }catch(e){}
+  try{ localStorage.removeItem(CM.storeKey('patient')); }catch(e){}
   CM.setContrastUsed(0); fillPanel(); notify(); };
 
 CM.contrastUsed = function(){ var v=parseFloat(localStorage.getItem(CM.storeKey('contrast'))); return isNaN(v)?0:Math.max(0,v); };
@@ -367,7 +358,7 @@ CM.root = ROOT;
    land in the visible dock slots). phase groups the home tool library:
    pre = work-up / planning, intra = live case, post = after the case. */
 var NAV = [
-  {label:'Handoff',    href:'index.html',             cat:'home',     phase:'pre'},
+  {label:'Home',       href:'index.html',             cat:'home',     phase:'pre'},
   {label:'Heparin',    href:'calc/heparin.html',      cat:'dose',     phase:'intra'},
   {label:'ACT',        href:'calc/act.html',          cat:'dose',     phase:'intra'},
   {label:'Contrast',   href:'calc/contrast.html',     cat:'contrast', phase:'intra'},
@@ -404,7 +395,6 @@ function panelHTML(){
   +'<div class="field" style="grid-column:1/-1"><label id="lblUnitsBody">Weight &amp; height units <span class="hint">(labs always mg/dL, g/dL)</span></label>'
   +'<div class="seg" role="radiogroup" aria-labelledby="lblUnitsBody" id="unitSegBody" data-field="unitsBody">'
   +'<button type="button" data-v="us">US (lb, ft/in)</button><button type="button" data-v="si">Metric (kg, cm)</button></div></div>'
-  +'<div class="field"><label for="pid">Patient ID / room <span class="hint">(optional)</span></label><input id="pid" type="text" autocomplete="off" placeholder="e.g. Rm 3 / initials"></div>'
   +'<div class="field"><label for="age">Age <span class="hint">(yrs)</span></label><input id="age" type="number" inputmode="numeric" step="1" min="18" max="120" autocomplete="off" placeholder="68"></div>'
   +'<div class="field"><label id="lblSex">Sex at birth</label>'
   +'<div class="seg" role="radiogroup" aria-labelledby="lblSex" data-field="sex"><button type="button" data-v="M">Male</button><button type="button" data-v="F">Female</button></div></div>'
@@ -424,7 +414,6 @@ function panelHTML(){
 
 function panelStatus(){
   var d=CM.derived(), bits=[];
-  if(P.pid)bits.push(CM.esc(P.pid));
   if(P.age)bits.push(P.age+'y '+(P.sex||''));
   if(P.kg)bits.push(P.kg.toFixed(1)+' kg');
   if(d.egfr)bits.push('eGFR '+d.egfr.toFixed(0));
@@ -447,7 +436,6 @@ function fillPanel(){
   $('wrapHeightUS').style.display=siB?'none':'';
   $('wrapHeightSI').style.display=siB?'':'none';
   $('wLab').textContent=siB?'kg':'lb';
-  $('pid').value=P.pid||'';
   $('age').value=P.age!=null?P.age:'';
   $('wt').value=P.kg!=null?(siB?P.kg.toFixed(1):(P.kg*2.20462).toFixed(1)):'';
   if(P.cm!=null){ if(siB){$('cmH').value=P.cm.toFixed(1);}
@@ -470,7 +458,6 @@ function fillPanel(){
 var num = CM.num = function(id){ var v=parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; };
 function readPanel(){
   var siB=CM.unitsBody()==='si';
-  P.pid=$('pid').value.trim();
   var a=num('age'); P.age=(a&&a>0)?a:null;
   var w=num('wt'); P.kg=(w&&w>0)?(siB?w:w/2.20462):null;
   if(siB){ var c=num('cmH'); P.cm=(c&&c>0)?c:null; }
@@ -509,7 +496,7 @@ function renderSummary(){
     else { ag.hidden=true; ag.textContent=''; }
   }
   var st=$('ppanelStatus'); if(st)st.textContent=panelStatus();
-  var pm=$('printmeta'); if(pm)pm.textContent=(P.pid?('Patient: '+P.pid+'  ·  '):'')+'Generated '+new Date().toLocaleString('en-US');
+  var pm=$('printmeta'); if(pm)pm.textContent='Generated '+new Date().toLocaleString('en-US');
 }
 
 /* Build the page shell. opts: {title, desc, home, copy:fn->string, onClear:fn} */
@@ -527,20 +514,8 @@ CM.init = function(opts){
     +'<span class="brandbtns">'
     +(opts.copy?'<button class="btn" id="copyBtn" type="button">Copy</button>':'')
     +'<button class="btn" id="clearBtn" type="button">New patient</button></span></header>';
-  /* case-slot bar: pick room + case so each patient's pages stay live */
-  var slot=CM.slot(), caseOpts='';
-  for(var ci=1;ci<=CM.CASES;ci++){ caseOpts+='<option value="'+ci+'"'+(ci===slot.case?' selected':'')+'>Case '+ci+(CM.slotUsed(slot.room,ci)?' •':'')+'</option>'; }
-  h+='<div class="casebar">'
-    +'<span class="cblab">Room</span>'
-    +'<div class="seg cbroom" role="radiogroup" aria-label="Procedure room" data-field="__room">'
-    + CM.ROOMS.map(function(r){ return '<button type="button" data-v="'+CM.esc(r)+'"'+(r===slot.room?' class="on"':'')+'>'+CM.esc(r)+'</button>'; }).join('')
-    +'</div>'
-    +'<span class="cblab">Case</span>'
-    +'<select class="cbcase" id="slotCase" aria-label="Case number">'+caseOpts+'</select>'
-    +'<span class="cbcur" aria-hidden="true">'+CM.esc(CM.slotLabel())+'</span>'
-    +'</div>';
   h+='<h1 class="apptitle">'+CM.esc(opts.title||'Cath Lab Tools')+'</h1>';
-  if(!isHome)h+='<p class="crumb"><a href="'+ROOT+'index.html">‹ Handoff</a></p>';
+  if(!isHome)h+='<p class="crumb"><a href="'+ROOT+'index.html">‹ Home</a></p>';
   if(opts.desc)h+='<p class="tagline">'+opts.desc+'</p>';
   h+='<div class="printmeta" id="printmeta"></div>';
   h+='<div class="summary" id="summaryBar" role="button" tabindex="0" aria-label="Derived values — tap to edit patient" title="Tap to edit patient">'
@@ -560,16 +535,9 @@ CM.init = function(opts){
     +' · <a href="'+ROOT+'tests.html">formula self-test</a></p>'
     +'<div class="sr-only" aria-live="polite" id="srlive"></div>';
 
-  /* wire case-slot bar → switching reloads with that case's saved data */
-  var cbroom=top.querySelector('.cbroom');
-  if(cbroom){ cbroom.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
-    CM.setSlot(b.getAttribute('data-v'), CM.slot().case); }); CM.a11ySegs(cbroom); }
-  var cbcase=$('slotCase');
-  if(cbcase) cbcase.addEventListener('change',function(){ CM.setSlot(CM.slot().room, this.value); });
-
   /* wire panel */
   fillPanel();
-  ['pid','age','wt','ft','in','cmH','scr','hgb'].forEach(function(id){
+  ['age','wt','ft','in','cmH','scr','hgb'].forEach(function(id){
     $(id).addEventListener('input',readPanel); });
   $('race').addEventListener('change',readPanel);
   CM.wireSegs($('ppanelBody'),function(field,v){

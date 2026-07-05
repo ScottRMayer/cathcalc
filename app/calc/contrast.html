@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Contrast volume · Cath Lab Tools</title>
 </head>
 <body>
@@ -54,7 +54,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, syncing=false, overLimit=false; /* overLimit: announce the limit crossing once, not every keystroke */
 function render(){
@@ -82,29 +82,4 @@ function render(){
       pctEl.textContent=Math.round(pctRaw)+'% of max — EXCEEDED by '+CM.fmt(Math.round(used-cMaxVal))+' mL';
       pctEl.style.color='var(--bad)';
       usedEl.className='answer num bad';
-      over.style.display='';
-      if(!overLimit){ overLimit=true; CM.announce('Contrast limit exceeded'); }
-    }else{
-      overLimit=false;
-      pctEl.textContent=Math.round(pctRaw)+'% of max';
-      pctEl.style.color='';
-      usedEl.className='answer num '+(pctRaw>=90?'bad':(pctRaw>=70?'warn':'neutral'));
-      over.style.display='none';
-      CM.announce('Contrast '+used+' of '+cMaxVal.toFixed(0)+' milliliters');
-    } }
-  else{ overLimit=false; bar.style.width=(used>0?100:0)+'%'; bar.style.background='var(--muted)';
-    pctEl.textContent='— of max'; pctEl.style.color=''; usedEl.className='answer num neutral'; over.style.display='none'; }
-}
-CM.init({title:'Contrast volume', copy:function(){
-  return 'Clara Maass CMC — Contrast: '+CM.contrastUsed()+' mL used / max '+$('cMax').textContent+' mL ('+new Date().toLocaleString('en-US')+')';
-}});
-$('contrastRule').addEventListener('change',render);
-$('cUsed').addEventListener('input',function(){ syncing=true;
-  var v=parseFloat(this.value); CM.setContrastUsed(isNaN(v)?0:v); syncing=false; });
-document.querySelectorAll('[data-add]').forEach(function(btn){ btn.addEventListener('click',function(){
-  CM.setContrastUsed(Math.max(0,CM.contrastUsed()+parseFloat(this.getAttribute('data-add')))); }); });
-$('cUsedReset').addEventListener('click',function(){ CM.setContrastUsed(0); });
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+      over.style.displ

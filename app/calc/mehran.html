@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Mehran CI-AKI score · Cath Lab Tools</title>
 </head>
 <body>
@@ -40,7 +40,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, card=document.querySelector('.card'), editing=false;
 var anemiaTouched=false; /* manual override: stop auto-deriving anemia once the user taps the seg */
@@ -62,25 +62,4 @@ function render(){
   if(P.scr==null&&d.egfr==null&&!P.dial)miss.push('creatinine');
   if(miss.length){
     CM.setNum('mScore','—','neutral'); mChip.style.display='none';
-    $('mCin').textContent=$('mDialR').textContent='—'; $('mErr').textContent='Enter '+miss.join(' and ')+'.'; return; }
-  $('mErr').textContent='';
-  var mr=CM.F.mehran({hypotension:CM.segYes('mHypo',card), iabp:CM.segYes('mIabp',card), chf:CM.segYes('mChf',card),
-    age:P.age, anemia:CM.segYes('mAnemia',card), diabetes:CM.segYes('mDm',card),
-    contrastML:used, scr:P.scr, egfr:d.egfr, dialysis:P.dial});
-  CM.setNum('mScore',mr.score,mr.cls);
-  mChip.style.display='';
-  mChip.className=(mr.category==='Very high')?'chip crit':('chip '+mr.cls);
-  mChip.textContent=mr.category;
-  $('mCin').textContent=mr.cinRisk; $('mDialR').textContent=mr.dialysisRisk;
-  CM.announce('Mehran '+mr.category);
-}
-CM.init({title:'Mehran CI-AKI score', copy:function(){
-  return 'Clara Maass CMC — Mehran: '+$('mScore').textContent+' pts '+($('mChip').textContent?('('+$('mChip').textContent+')'):'')+' — CI-AKI '+$('mCin').textContent+', dialysis '+$('mDialR').textContent+' ('+new Date().toLocaleString('en-US')+')';
-}, onClear:function(){ anemiaTouched=false; CM.resetSegs(card); render(); }});
-CM.wireSegs(card,function(field){ if(field==='mAnemia')anemiaTouched=true; render(); });
-$('mContrast').addEventListener('input',function(){ editing=true;
-  var v=parseFloat(this.value); CM.setContrastUsed(isNaN(v)?0:v); editing=false; });
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+    $('mCin').textContent=$('mDialR').textContent='—'; $('mErr').textContent='Enter '+miss.join(' and ')+'.'; ret

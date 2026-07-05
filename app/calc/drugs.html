@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Anticoagulant / antiplatelet dosing · Cath Lab Tools</title>
 </head>
 <body>
@@ -28,7 +28,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$;
 function drugCard(name,dose,adj){ return '<div class="drug"><div class="name">'+name+'</div><div class="dose">'+dose+'</div>'+(adj?'<div class="adj">'+adj+'</div>':'')+'</div>'; }
@@ -56,15 +56,4 @@ function render(){
     if(first)ann=pick+': '+first.textContent; }
   CM.announce(ann);
 }
-CM.init({title:'Anticoagulant / antiplatelet dosing', copy:function(){
-  var L=['Clara Maass CMC — '+$('drugCrcl').textContent.replace(/\s+/g,' ')];
-  document.querySelectorAll('#drugList .drug').forEach(function(dv){
-    L.push('• '+dv.querySelector('.name').textContent+': '+dv.querySelector('.dose').textContent); });
-  L.push('Decision-support only; verify per protocol. '+new Date().toLocaleString('en-US'));
-  return L.join('\n');
-}});
-$('drugPick').addEventListener('change',render);
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+CM.init({title:'Anticoagulant / antiplatelet dosin

@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Hemodynamics · Cath Lab Tools</title>
 </head>
 <body>
@@ -105,7 +105,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, F=CM.F, valveCard=$('valveCard');
 function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
@@ -216,16 +216,4 @@ function render(){
 }
 CM.init({title:'Hemodynamics', copy:function(){
   return 'Clara Maass CMC — Hemodynamics: BSA '+$('hBsa').textContent+' m² · CO '+$('hCo').textContent+' L/min ('+$('hCoSrc').textContent+') · CI '+$('hCi').textContent
-    +' · SVR '+$('hSvr').textContent+' dynes · PVR '+$('hPvr').textContent+' WU · Valve '+$('vGorlin').textContent+' cm² (Gorlin) · Qp:Qs '+$('qRatio').textContent
-    +' · '+new Date().toLocaleString('en-US');
-}, onClear:function(){
-  ['sao2','svo2','vo2meas','tdco','sbp','dbp','rap','spap','dpap','pcwp','vGrad','vHr','vPeriod','qSvc','qIvc','qMv','qPa','qPv','qAo'].forEach(function(id){$(id).value='';});
-  $('vo2m2').value='125'; mvTouched=false; CM.resetSegs(valveCard); render();
-}});
-['sao2','svo2','vo2m2','vo2meas','tdco','sbp','dbp','rap','spap','dpap','pcwp','vGrad','vHr','vPeriod','qSvc','qIvc','qPa','qPv','qAo'].forEach(function(id){ $(id).addEventListener('input',render); });
-$('qMv').addEventListener('input',function(){ mvTouched=this.value.trim()!==''; render(); });
-CM.wireSegs(valveCard,function(){ render(); });
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+    +' · SVR '+$('hSvr').textContent+' dynes · PVR '+$('hPvr').textContent+' WU · Valve '+$('vGorlin').textC

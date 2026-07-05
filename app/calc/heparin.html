@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Heparin dose · Cath Lab Tools</title>
 </head>
 <body>
@@ -31,7 +31,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 function render(){
   var P=CM.patient(), $=CM.$;
@@ -42,24 +42,4 @@ function render(){
   $('hepErr').textContent='';
   var d=CM.F.heparinDose(P.kg,50), i=CM.F.heparinDose(P.kg,70);
   $('hepDiag').textContent=CM.fmt(Math.round(d));
-  $('hepInt').textContent=CM.fmt(Math.round(i));
-  $('hepDiagR').textContent='≈ '+CM.fmt(CM.round100(d))+' U';
-  $('hepIntR').textContent='≈ '+CM.fmt(CM.round100(i))+' U';
-  /* dose-defining weight, visible without opening the patient panel */
-  $('hepWt').textContent='Based on '+P.kg.toFixed(1)+' kg ('+(P.kg*2.20462).toFixed(0)+' lb)';
-  /* presentation-only caution — computed values unchanged */
-  if(Math.round(i)>10000||Math.round(d)>10000){
-    $('hepCap').textContent='Above 10,000 U — many protocols cap the initial bolus; verify per your lab’s protocol.';
-    $('hepCap').className='flag warn'; }
-  else{ $('hepCap').textContent=''; $('hepCap').className='flag'; }
-  CM.announce('Heparin PCI '+CM.fmt(Math.round(i))+' units');
-}
-CM.init({title:'Heparin dose', copy:function(){
-  var $=CM.$, P=CM.patient();
-  return 'Clara Maass CMC — Heparin: dx '+$('hepDiag').textContent+' U / PCI '+$('hepInt').textContent+' U'
-    +(P.kg!=null?(' (based on '+P.kg.toFixed(1)+' kg)'):'')+' ('+new Date().toLocaleString('en-US')+')';
-}});
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+  $('hepInt').textCont

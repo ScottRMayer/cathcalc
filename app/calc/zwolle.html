@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Zwolle score · Cath Lab Tools</title>
 </head>
 <body>
@@ -39,7 +39,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, card=$('zCard');
 var FIELDS=['zKil','zTimi','zAge','z3v','zAnt','zT4'];
@@ -65,22 +65,4 @@ function render(){
   if(done===FIELDS.length){
     CM.setNum('zScore',r.score,r.cls);
     chip.className='chip '+r.cls; chip.textContent=r.category;
-    $('zNote').textContent=r.note; $('zNote').className='flag'+(r.low?'':' warn');
-    CM.announce('Zwolle '+r.score+' points, '+r.category);
-  } else {
-    /* provisional: neutral number, pending chip, no risk claim */
-    CM.setNum('zScore',r.score,'neutral');
-    chip.className='chip pending';
-    chip.textContent='Incomplete — '+done+' of '+FIELDS.length+' answered';
-    $('zNote').textContent=''; $('zNote').className='flag';
-    CM.announce('Zwolle incomplete, '+done+' of '+FIELDS.length+' answered');
-  }
-}
-CM.init({title:'Zwolle score', copy:function(){
-  return 'Clara Maass CMC — Zwolle: '+$('zScore').textContent+'/16 ('+$('zChip').textContent+') · '+new Date().toLocaleString('en-US');
-}, onClear:function(){ CM.resetSegs(card); touched={}; render(); }});
-CM.wireSegs(card,function(field){ if(field)touched[field]=true; render(); });
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+    $('zNote').textContent=r.note; $('zNote').class

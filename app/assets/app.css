@@ -133,17 +133,6 @@ a{color:var(--accent)}
   .summary .s:nth-child(2n+1){border-left:0}
 }
 
-/* case-slot bar: room + case picker so each patient's pages stay live */
-.casebar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin:0 0 12px;padding:9px 12px;
-  background:var(--card);border:1px solid var(--line);border-left:3px solid var(--brand-blue);border-radius:14px;box-shadow:var(--shadow-sm)}
-.casebar .cblab{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.casebar .seg.cbroom{flex:0 1 auto;padding:3px}
-.casebar .seg.cbroom button{min-height:44px;padding:6px 12px;font-size:.85rem}
-.casebar .cbcase{min-height:44px;width:auto;flex:0 0 auto;padding:6px 28px 6px 10px;font-size:1rem;font-weight:700}
-.casebar .cbcur{margin-left:auto;font-size:.82rem;font-weight:800;color:var(--brand-blue);font-variant-numeric:tabular-nums}
-@media (max-width:400px){ .casebar .cbcur{width:100%;margin-left:0;text-align:right} }
-@media print{ .casebar{border:1px solid #999;box-shadow:none} .casebar .cbcur{color:#000} }
-
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 16px;margin-bottom:16px;
   box-shadow:var(--shadow-md)}
 .card h2{font-size:1.15rem;margin:0 0 2px;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}

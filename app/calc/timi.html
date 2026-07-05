@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>TIMI risk scores · Cath Lab Tools</title>
 </head>
 <body>
@@ -62,7 +62,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, uaCard=$('uaCard'), stCard=$('stCard');
 var UA_FIELDS=['uAge','uRf','uCad','uAsa','uAng','uSt','uMk'];
@@ -114,35 +114,4 @@ function render(){
     $('uaRiskLine').style.display='none'; $('uaRisk').textContent='—';
   }
 
-  var agePts=parseInt(CM.seg('sAge',stCard)||'0',10);
-  var st=CM.F.timiSTEMI({
-    age:(agePts===3?75:(agePts===2?65:0)),
-    dmHtnAngina:CM.segYes('sDha',stCard), sbpLt100:CM.segYes('sSbp',stCard), hrGt100:CM.segYes('sHr',stCard),
-    killip24:CM.segYes('sKil',stCard), wtLt67:CM.segYes('sWt',stCard),
-    anteriorOrLBBB:CM.segYes('sAnt',stCard), timeGt4h:CM.segYes('sT4',stCard)});
-  var stDone=answered(ST_FIELDS,auto), stFull=stDone===ST_FIELDS.length, stChip=$('stChip');
-  if(stFull){
-    CM.setNum('stScore',st.score,st.cls);
-    stChip.className='chip '+st.cls;
-    stChip.textContent = st.cls==='good'?'Low':(st.cls==='warn'?'Intermediate':'High');
-    $('stRiskLine').style.display=''; $('stRisk').textContent=st.risk;
-  } else {
-    CM.setNum('stScore',st.score,'neutral');
-    stChip.className='chip pending';
-    stChip.textContent='Incomplete — '+stDone+' of '+ST_FIELDS.length+' answered';
-    $('stRiskLine').style.display='none'; $('stRisk').textContent='—';
-  }
-  CM.announce('TIMI UA NSTEMI '
-    +(uaFull?ua.score+' points, '+ua.category:'incomplete, '+uaDone+' of '+UA_FIELDS.length+' answered')
-    +'. STEMI '
-    +(stFull?st.score+' points':'incomplete, '+stDone+' of '+ST_FIELDS.length+' answered'));
-}
-CM.init({title:'TIMI risk scores', copy:function(){
-  return 'Clara Maass CMC — TIMI UA/NSTEMI: '+$('uaScore').textContent+'/7 ('+$('uaChip').textContent+', 14-day '+$('uaRisk').textContent+') · TIMI STEMI: '+$('stScore').textContent+'/14 ('+$('stChip').textContent+', 30-day mortality '+$('stRisk').textContent+') · '+new Date().toLocaleString('en-US');
-}, onClear:function(){ CM.resetSegs(uaCard); CM.resetSegs(stCard); touched={}; render(); }});
-function onSeg(field){ if(field)touched[field]=true; render(); }
-CM.wireSegs(uaCard,onSeg); CM.wireSegs(stCard,onSeg);
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+  var agePts=parseInt(CM.seg('sAge'

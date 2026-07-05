@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>ACT target &amp; re-bolus · Cath Lab Tools</title>
 </head>
 <body>
@@ -44,7 +44,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$;
 function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
@@ -78,18 +78,4 @@ function render(){
     else{ CM.setNum('actRebolus','—','bad');
       $('actFlag').textContent='Enter weight and a valid U/kg to estimate re-bolus.'+near; $('actFlag').className='flag warn'; } }
 }
-CM.init({title:'ACT target & re-bolus', copy:function(){
-  var rb=$('actRebolus').textContent, P=CM.patient();
-  var m=num('actMeasured'), t=num('actTarget');
-  return 'Clara Maass CMC — ACT: '+$('actChip').textContent
-    +(m!==null?(' — measured '+m+' s'+(t!==null?(' vs target '+t+' s'):'')):'')
-    +((rb!=='—'&&rb!=='0')?(' — re-bolus '+rb+' U'+(P.kg!=null?(' based on '+P.kg.toFixed(1)+' kg'):'')):'')
-    +' ('+new Date().toLocaleString('en-US')+')';
-}, onClear:function(){ $('actMeasured').value=''; $('actTarget').value='300'; $('actUkg').value='25'; $('actPreset').value='300'; render(); }});
-['actTarget','actMeasured','actUkg'].forEach(function(id){ $(id).addEventListener('input',render); });
-$('actPreset').addEventListener('change',function(){ if(this.value!=='custom'){$('actTarget').value=this.value;} render(); });
-$('actTarget').addEventListener('input',function(){ var m={'300':1,'250':1,'200':1}; $('actPreset').value=m[this.value]?this.value:'custom'; });
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+CM.init({titl

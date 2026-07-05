@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Vasoactive drips · Cath Lab Tools</title>
 </head>
 <body>
@@ -50,7 +50,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, F=CM.F;
 /* amt in mg except units:true drugs (vasopressin, heparin — amount in units).
@@ -110,58 +110,4 @@ function render(){
   $('dConc').textContent = c!=null ? ('Concentration: '+concLabel(c,d)) : '';
   var err='';
   if(c==null)err='Enter bag amount and volume.';
-  else if(needsKg()&&kg==null)err='Enter patient weight (shared panel above).';
-  var dose=parseFloat($('dDose').value), rate=parseFloat($('dRate').value);
-  var out=null, doseShown=null, main='', mainU='';
-  if(!err){
-    if(last==='dose'&&!isNaN(dose)&&dose>=0){
-      out=F.dripMlPerHr(dose,d.unit,kg,c); doseShown=dose;
-      $('dRate').value=isFinite(out)?out.toFixed(1):'';
-      if(isFinite(out)){ main=out.toFixed(1); mainU='mL/h at '+dose+' '+d.unit; }
-    } else if(last==='rate'&&!isNaN(rate)&&rate>=0){
-      out=F.dripDoseFromRate(rate,d.unit,kg,c); doseShown=out;
-      $('dDose').value=isFinite(out)?(+out.toFixed(3)):'';
-      if(isFinite(out)){ main=String(+out.toFixed(3)); mainU=d.unit+' at '+rate+' mL/h'; }
-    }
-  }
-  $('dErr').textContent=err;
-  var chip=$('dChip');
-  if(out!=null&&isFinite(out)){ $('dOut').textContent=main; $('dOutU').textContent=mainU;
-    if(doseShown!=null){ chip.style.display='';
-      if(doseShown<d.lo){ chip.className='chip warn'; chip.textContent='Below typical range'; }
-      else if(doseShown>d.hi){ chip.className='chip bad'; chip.textContent='ABOVE typical range — verify'; }
-      else { chip.className='chip good'; chip.textContent='Within typical range'; } }
-    CM.announce(d.name+' '+(last==='dose'
-      ? dose+' '+d.unit+' = '+out.toFixed(1)+' mL per hour'
-      : rate+' mL per hour = '+(+out.toFixed(3))+' '+d.unit)); }
-  else { $('dOut').textContent='—'; $('dOutU').textContent='mL/h'; chip.style.display='none'; }
-  $('dRange').textContent='Typical: '+d.lo+'–'+d.hi+' '+d.unit+(needsKg()?' (weight-based)':'')+(d.note?' · '+d.note:'');
-  /* quick chart */
-  var html='';
-  if(c!=null&&(!needsKg()||kg!=null)){
-    html='<table class="minitable"><tr><th scope="row">'+d.unit+'</th>'
-      +d.step.map(function(s){return '<th>'+s+'</th>';}).join('')+'</tr>'
-      +'<tr><td>mL/h</td>'
-      +d.step.map(function(s){var r=F.dripMlPerHr(s,d.unit,kg,c);return '<td>'+(isFinite(r)?r.toFixed(1):'—')+'</td>';}).join('')
-      +'</tr></table>';
-  }
-  $('dChart').innerHTML=html;
-}
-CM.init({title:'Infusion drips', copy:function(){
-  var d=drug();
-  return 'Clara Maass CMC — '+d.name+' '+$('dDose').value+' '+d.unit+' = '+$('dRate').value+' mL/h ('+$('dConc').textContent+') · '+new Date().toLocaleString('en-US');
-}, onClear:function(){ fillDrug(); }});
-$('dDrug').innerHTML=DRUGS.map(function(d){return '<option>'+d.name+'</option>';}).join('');
-$('dDrug').addEventListener('change',fillDrug);
-$('dAmt').addEventListener('input',function(){ confirmBag(); render(); });
-$('dVol').addEventListener('input',function(){ confirmBag(); render(); });
-$('dAmt').addEventListener('focus',confirmBag);
-$('dVol').addEventListener('focus',confirmBag);
-$('dConfirmBtn').addEventListener('click',confirmBag);
-$('dDose').addEventListener('input',function(){ last='dose'; render(); });
-$('dRate').addEventListener('input',function(){ last='rate'; render(); });
-CM.onChange(render);
-fillDrug();
-</script>
-</body>
-</html>
+  else if(needsKg()&&kg==null)err='Enter

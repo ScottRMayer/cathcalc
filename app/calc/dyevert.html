@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>DyeVert determination · Cath Lab Tools</title>
 </head>
 <body>
@@ -50,7 +50,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, card=document.querySelector('.card');
 function anemic(P){ if(P.hgb==null||!P.sex)return false; return P.sex==='F'?P.hgb<12:P.hgb<13; }
@@ -106,14 +106,4 @@ function setResult(r){
   CM.announce('DyeVert '+r.category);
 }
 CM.init({title:'DyeVert determination', copy:function(){
-  var trg=$('dTriggers').textContent.replace(/\s+/g,' ').trim();
-  return 'Clara Maass CMC — DyeVert: '+$('dChip').textContent+' — '+$('dRec').textContent
-    +' (eGFR '+$('dEgfr').textContent+', Mehran (partial) '+$('dMehran').textContent
-    +', ratio '+$('dRatio').textContent+') '+trg+' ('+new Date().toLocaleString('en-US')+')';
-}, onClear:function(){ CM.resetSegs(card); $('dPlanned').value=''; render(); }});
-CM.wireSegs(card,function(){ render(); });
-$('dPlanned').addEventListener('input',render);
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+  var trg=$('dTriggers').textContent

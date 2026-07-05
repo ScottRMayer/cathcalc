@@ -9,7 +9,7 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/icon-192.png">
-<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
+<link rel="stylesheet" href="../assets/app.css?v=3.9.0">
 <title>Bleeding risk (ACC CathPCI) · Cath Lab Tools</title>
 </head>
 <body>
@@ -36,7 +36,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js?v=3.7.0"></script>
+<script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, card=document.querySelector('.card');
 function render(){
@@ -56,10 +56,4 @@ function render(){
   CM.announce('Bleeding risk '+risk.toFixed(1)+' percent');
 }
 CM.init({title:'Bleeding risk (ACC CathPCI)', copy:function(){
-  return 'Clara Maass CMC — Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):'')+' ('+new Date().toLocaleString('en-US')+')';
-}, onClear:function(){ CM.resetSegs(card); render(); }});
-CM.wireSegs(card,function(){ render(); });
-CM.onChange(render); render();
-</script>
-</body>
-</html>
+  return 'Clara Maass CMC — Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):'')+' ('+new Date().toLocaleSt
