@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/app.css">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
 <title>ACT target &amp; re-bolus · Cath Lab Tools</title>
 </head>
 <body>
@@ -30,45 +32,59 @@
       <div class="field"><label for="actUkg">Re-bolus rate <span class="hint">(U/kg)</span></label><input id="actUkg" type="number" inputmode="numeric" step="1" min="1" max="100" value="25"></div>
     </div>
     <div class="subsec">Status</div>
-    <div class="hero">
+    <div class="result">
+      <span><span class="answer num neutral" id="actRebolus">—</span> <span class="unit">U re-bolus</span></span>
       <span class="chip lg neutral" id="actChip">Enter ACT</span>
-      <span><span class="num sm neutral" id="actRebolus">—</span> <span class="unit">U re-bolus</span></span>
     </div>
     <div class="flag" id="actFlag"></div>
+    <div class="err danger" id="actImp"></div>
     <div class="err" id="actErr"></div>
     <div class="note">Re-bolus = weight × U/kg (nearest 500), shown only when below target. Recheck ACT ~5 min after any bolus. Targets are institution-specific.</div>
   </div>
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js"></script>
+<script src="../assets/core.js?v=3.7.0"></script>
 <script>
 var $=CM.$;
 function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
 function render(){
   var P=CM.patient(), kg=P.kg;
   var actTarget=num('actTarget'), actMeas=num('actMeasured'), actUkg=num('actUkg'), aChip=$('actChip');
+  var badTarget=(actTarget!==null&&actTarget<=0);
+  if(badTarget){ $('actTarget').setAttribute('aria-invalid','true'); }
+  else{ $('actTarget').removeAttribute('aria-invalid'); }
+  /* implausible-entry guard: shown alongside whatever the status says */
+  $('actImp').textContent=(actMeas!==null&&actMeas<80)?'ACT < 80 s — confirm the measurement.':'';
   if(actMeas===null||actTarget===null||actTarget<=0){
     aChip.className='chip lg neutral'; aChip.textContent='Enter ACT';
     CM.setNum('actRebolus','—','neutral'); $('actFlag').textContent='';
-    $('actErr').textContent=(actTarget!==null&&actTarget<=0?'Target must be > 0.':''); }
+    $('actErr').className=badTarget?'err danger':'err';
+    $('actErr').textContent=(badTarget?'Target must be > 0.':''); }
   else if(actMeas>=actTarget){
     aChip.className='chip lg good'; aChip.textContent='At target';
     CM.setNum('actRebolus','0','good');
     $('actFlag').textContent='ACT ≥ target ('+actTarget+' s) — proceed.'; $('actFlag').className='flag';
-    $('actErr').textContent=''; CM.announce('ACT at target'); }
+    $('actErr').className='err'; $('actErr').textContent=''; CM.announce('ACT at target'); }
   else{
-    aChip.className='chip lg bad'; aChip.textContent='Below target'; $('actErr').textContent='';
+    aChip.className='chip lg bad'; aChip.textContent='Below target';
+    $('actErr').className='err'; $('actErr').textContent='';
+    var diff=actTarget-actMeas;
+    var near=(diff<=10)?' Within 10 s of target — consider recheck before re-bolus.':'';
     if(kg!=null&&actUkg!==null&&actUkg>0){
       var rb=CM.F.actRebolus(kg,actUkg); CM.setNum('actRebolus',CM.fmt(rb),'bad');
-      $('actFlag').textContent='Low by '+(actTarget-actMeas)+' s. Suggest '+CM.fmt(rb)+' U ('+actUkg+' U/kg); recheck in ~5 min.';
+      $('actFlag').textContent='Low by '+diff+' s. Suggest '+CM.fmt(rb)+' U ('+actUkg+' U/kg, '+kg.toFixed(1)+' kg); recheck in ~5 min.'+near;
       $('actFlag').className='flag warn'; CM.announce('ACT below target, re-bolus '+CM.fmt(rb)+' units'); }
     else{ CM.setNum('actRebolus','—','bad');
-      $('actFlag').textContent='Enter weight and a valid U/kg to estimate re-bolus.'; $('actFlag').className='flag warn'; } }
+      $('actFlag').textContent='Enter weight and a valid U/kg to estimate re-bolus.'+near; $('actFlag').className='flag warn'; } }
 }
 CM.init({title:'ACT target & re-bolus', copy:function(){
-  var rb=$('actRebolus').textContent;
-  return 'Clara Maass CMC — ACT: '+$('actChip').textContent+((rb!=='—'&&rb!=='0')?(' — re-bolus '+rb+' U'):'')+' ('+new Date().toLocaleString('en-US')+')';
+  var rb=$('actRebolus').textContent, P=CM.patient();
+  var m=num('actMeasured'), t=num('actTarget');
+  return 'Clara Maass CMC — ACT: '+$('actChip').textContent
+    +(m!==null?(' — measured '+m+' s'+(t!==null?(' vs target '+t+' s'):'')):'')
+    +((rb!=='—'&&rb!=='0')?(' — re-bolus '+rb+' U'+(P.kg!=null?(' based on '+P.kg.toFixed(1)+' kg'):'')):'')
+    +' ('+new Date().toLocaleString('en-US')+')';
 }, onClear:function(){ $('actMeasured').value=''; $('actTarget').value='300'; $('actUkg').value='25'; $('actPreset').value='300'; render(); }});
 ['actTarget','actMeasured','actUkg'].forEach(function(id){ $(id).addEventListener('input',render); });
 $('actPreset').addEventListener('change',function(){ if(this.value!=='custom'){$('actTarget').value=this.value;} render(); });

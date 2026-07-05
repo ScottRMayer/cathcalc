@@ -46,6 +46,13 @@ function CM_TESTS(F){
   t('Mehran: eGFR 19 = 6 pts', F.mehran({age:0,scr:1.2,egfr:19}).score, 6);
   t('Mehran: full house 5+5+5+4+3+3+3(contrast 300)+6 = 34 → Very high',
     F.mehran({hypotension:1,iabp:1,chf:1,age:80,anemia:1,diabetes:1,contrastML:300,dialysis:true}).category, 'Very high');
+  /* category boundaries */
+  t('Mehran: score 5 = Low (boundary)', F.mehran({hypotension:1}).category, 'Low');
+  t('Mehran: score 6 = Moderate (boundary)', F.mehran({dialysis:true}).category, 'Moderate');
+  t('Mehran: score 16 = High (boundary)',
+    F.mehran({hypotension:1,iabp:1,anemia:1,diabetes:1}).category, 'High');
+  t('Mehran: score 17 = Very high (boundary)',
+    F.mehran({hypotension:1,iabp:1,anemia:1,diabetes:1,contrastML:100}).category, 'Very high');
 
   /* DyeVert determination */
   t('DyeVert: eGFR 40 → Tier A mandatory', F.dyevert({egfr:40}).tier, 'A');
@@ -116,6 +123,8 @@ function CM_TESTS(F){
   t('Eptifibatide: rate 2 mcg/kg/min normal renal', ep.rate, 2);
   t('Eptifibatide: rate 1 when CrCl<50', F.eptifibatide(80,40,false).rate, 1);
   t('Eptifibatide: weight capped at 121 kg', F.eptifibatide(150,90,false).bolus_mcg, 180*121, 1e-9);
+  t('Eptifibatide: infusion uses capped weight (150 kg → 2×121 = 242 mcg/min)', F.eptifibatide(150,90,false).inf, 242, 1e-9);
+  t('Eptifibatide: infusion capped + CrCl<50 → 1×121 = 121 mcg/min', F.eptifibatide(150,40,false).inf, 121, 1e-9);
   t('Eptifibatide: contraindicated on dialysis', !!F.eptifibatide(80,10,true).ci, true);
   var ti=F.tirofiban(80,90,false);
   t('Tirofiban: bolus 25×80 = 2000 mcg', ti.bolus_mcg, 2000, 1e-9);
@@ -153,6 +162,15 @@ function CM_TESTS(F){
   t('Drip reverse: 24 mL/h, 80 kg @1000 = 5 mcg/kg/min', F.dripDoseFromRate(24,'mcg/kg/min',80,1000), 5, 1e-9);
   t('Drip reverse: 50 mL/h @100 = 5 mg/h', F.dripDoseFromRate(50,'mg/h',null,100), 5, 1e-9);
   t('Drip round-trip: U/min', F.dripDoseFromRate(F.dripMlPerHr(0.04,'U/min',null,0.2),'U/min',null,0.2), 0.04, 1e-12);
+  /* mg/kg/h and U/kg/h (PCI anticoagulant pumps) */
+  t('Drip: bivalirudin 1.75 mg/kg/h, 80 kg @5000 mcg/mL (5 mg/mL) = 28 mL/h', F.dripMlPerHr(1.75,'mg/kg/h',80,5000), 28, 1e-9);
+  t('Drip: bivalirudin renal 1.0 mg/kg/h, 80 kg @5000 = 16 mL/h', F.dripMlPerHr(1.0,'mg/kg/h',80,5000), 16, 1e-9);
+  t('Drip: heparin 15 U/kg/h, 80 kg @100 U/mL = 12 mL/h', F.dripMlPerHr(15,'U/kg/h',80,100), 12, 1e-9);
+  t('Drip: heparin 18 U/kg/h, 62 kg @100 U/mL = 11.16 mL/h', F.dripMlPerHr(18,'U/kg/h',62,100), 11.16, 1e-9);
+  t('Drip reverse: 28 mL/h, 80 kg @5000 = 1.75 mg/kg/h', F.dripDoseFromRate(28,'mg/kg/h',80,5000), 1.75, 1e-9);
+  t('Drip reverse: 12 mL/h, 80 kg @100 U/mL = 15 U/kg/h', F.dripDoseFromRate(12,'U/kg/h',80,100), 15, 1e-9);
+  t('Drip round-trip: mg/kg/h', F.dripDoseFromRate(F.dripMlPerHr(1.75,'mg/kg/h',75,5000),'mg/kg/h',75,5000), 1.75, 1e-12);
+  t('Drip round-trip: U/kg/h', F.dripDoseFromRate(F.dripMlPerHr(12,'U/kg/h',95,100),'U/kg/h',95,100), 12, 1e-12);
 
   return out;
 }

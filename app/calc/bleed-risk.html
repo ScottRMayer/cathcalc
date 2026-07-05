@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/app.css">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
 <title>Bleeding risk (ACC CathPCI) · Cath Lab Tools</title>
 </head>
 <body>
@@ -34,7 +36,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js"></script>
+<script src="../assets/core.js?v=3.7.0"></script>
 <script>
 var $=CM.$, card=document.querySelector('.card');
 function render(){

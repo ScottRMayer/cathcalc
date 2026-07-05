@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/app.css">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
 <title>Hemodynamics · Cath Lab Tools</title>
 </head>
 <body>
@@ -28,8 +30,10 @@
     <div class="dual" style="margin-top:14px">
       <div class="box"><div class="lab">BSA (Mosteller)</div><div class="big" style="font-size:1.35rem"><span id="hBsa">—</span> <span class="u">m²</span></div></div>
       <div class="box"><div class="lab">Fick CO</div><div class="big" style="font-size:1.35rem"><span id="hFick">—</span> <span class="u">L/min</span></div></div>
-      <div class="box"><div class="lab">CO in use · <span id="hCoSrc">—</span></div><div class="big" style="font-size:1.35rem"><span id="hCo">—</span> <span class="u">L/min</span></div></div>
-      <div class="box"><div class="lab">Cardiac index</div><div class="big" style="font-size:1.35rem"><span id="hCi">—</span> <span class="u">L/min/m²</span></div></div>
+    </div>
+    <div class="result" style="margin-top:12px">
+      <span><span class="answer" id="hCo">—</span> <span class="qualifier">L/min</span> <span style="font-size:.8rem;color:var(--muted);font-weight:600">CO in use · <span id="hCoSrc">—</span></span></span>
+      <span><span class="answer" id="hCi">—</span> <span class="qualifier">L/min/m²</span> <span style="font-size:.8rem;color:var(--muted);font-weight:600">Cardiac index</span></span>
     </div>
     <div class="flag" id="hCiFlag"></div>
     <div class="err" id="hCoErr"></div>
@@ -46,9 +50,11 @@
       <div class="field"><label for="spap">PA pressure <span class="hint">(mmHg)</span></label><div class="row2"><input id="spap" type="number" inputmode="numeric" min="5" max="150" placeholder="sPAP" aria-label="PA systolic"><input id="dpap" type="number" inputmode="numeric" min="0" max="100" placeholder="dPAP" aria-label="PA diastolic"></div><div class="derived" id="mpapD"></div></div>
       <div class="field"><label for="pcwp">PCWP mean <span class="hint">(mmHg)</span></label><input id="pcwp" type="number" inputmode="decimal" step="1" min="0" max="60" placeholder="10"></div>
     </div>
-    <div class="dual" style="margin-top:14px">
-      <div class="box"><div class="lab">SVR</div><div class="big" style="font-size:1.35rem"><span id="hSvr">—</span> <span class="u">dyn·s·cm⁻⁵</span></div><div class="derived" id="hSvrW"></div></div>
-      <div class="box"><div class="lab">PVR</div><div class="big" style="font-size:1.35rem"><span id="hPvr">—</span> <span class="u">WU</span></div><div class="derived" id="hPvrD"></div></div>
+    <div class="result" style="margin-top:14px">
+      <span><span class="answer" id="hSvr">—</span> <span class="qualifier">dyn·s·cm⁻⁵</span> <span style="font-size:.8rem;color:var(--muted);font-weight:600">SVR · <span id="hSvrW"></span></span></span>
+      <span><span class="answer" id="hPvr">—</span> <span class="qualifier">WU</span> <span style="font-size:.8rem;color:var(--muted);font-weight:600">PVR · <span id="hPvrD"></span></span></span>
+    </div>
+    <div class="dual" style="margin-top:12px">
       <div class="box"><div class="lab">TPG / DPG</div><div class="big" style="font-size:1.35rem"><span id="hTpg">—</span> <span class="u">mmHg</span></div><div class="derived" id="hDpg"></div></div>
     </div>
     <div class="hero" style="margin-top:12px"><span class="chip neutral" id="phChip" style="display:none"></span></div>
@@ -99,7 +105,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js"></script>
+<script src="../assets/core.js?v=3.7.0"></script>
 <script>
 var $=CM.$, F=CM.F, valveCard=$('valveCard');
 function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
@@ -141,7 +147,8 @@ function render(){
   $('mpapD').textContent=mpap!=null?('mPAP = '+mpap.toFixed(0)):'';
   var resErr=[];
   if(co==null)resErr.push('CO (above)');
-  if(map!=null&&rap!=null&&co){ var s=F.vascRes(map,rap,co);
+  var svrDyn=null;
+  if(map!=null&&rap!=null&&co){ var s=F.vascRes(map,rap,co); svrDyn=s.dynes;
     $('hSvr').textContent=s.dynes.toFixed(0); $('hSvrW').textContent=s.wood.toFixed(1)+' WU'; }
   else { $('hSvr').textContent='—'; $('hSvrW').textContent=''; }
   var pvr=null;
@@ -198,6 +205,14 @@ function render(){
     $('qStep').textContent=(pa-mv)>=5?('O₂ step-up MV→PA = '+(pa-mv).toFixed(1)+'%'):'';
   } else { $('qRatio').textContent='—'; qChip.style.display='none'; $('qStep').textContent='';
     $('qErr').textContent=(mv!=null||pa!=null||ao!=null)?'Need MV (or SVC+IVC), PA, and aortic sats.':''; }
+
+  /* screen-reader feedback for the primary computed outputs */
+  var ann=[];
+  if(co!=null&&isFinite(co))ann.push('CO '+co.toFixed(2)+' liters per minute');
+  if(ci!=null&&isFinite(ci))ann.push('CI '+ci.toFixed(2));
+  if(svrDyn!=null&&isFinite(svrDyn))ann.push('SVR '+svrDyn.toFixed(0)+' dynes');
+  if(pvr!=null&&isFinite(pvr))ann.push('PVR '+pvr.toFixed(1)+' Wood units');
+  if(ann.length)CM.announce(ann.join(', '));
 }
 CM.init({title:'Hemodynamics', copy:function(){
   return 'Clara Maass CMC — Hemodynamics: BSA '+$('hBsa').textContent+' m² · CO '+$('hCo').textContent+' L/min ('+$('hCoSrc').textContent+') · CI '+$('hCi').textContent

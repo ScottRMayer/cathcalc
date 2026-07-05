@@ -2,95 +2,755 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
-<link rel="stylesheet" href="assets/app.css">
-<title>Cath Lab Tools · Clara Maass Medical Center</title>
+<link rel="stylesheet" href="assets/app.css?v=3.7.0">
+<title>Peri-procedure handoff · Cath Lab Tools</title>
+<style>
+  /* handoff-only tweaks; everything else inherits the shared stylesheet */
+  textarea.hf{width:100%;min-height:60px;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    font:inherit;font-size:1rem;background:var(--field-bg);color:var(--ink);resize:vertical;line-height:1.4;
+    transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease}
+  textarea.hf:focus{outline:none;border-color:var(--accent);background:var(--card);box-shadow:0 0 0 3px rgba(0,84,139,.35)}
+  @media (prefers-color-scheme:dark){textarea.hf:focus{box-shadow:0 0 0 3px rgba(87,168,232,.45)}}
+  .allergy-card{border-left:5px solid var(--brand-red)}
+  .allergy-card h2::before{background:linear-gradient(180deg,var(--brand-red),#a11d20)}
+  .med-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px}
+  .lab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px 14px}
+  .autoval{background:var(--accent-soft);border:1px dashed var(--accent);color:var(--accent);
+    border-radius:var(--radius-sm);padding:10px 12px;min-height:48px;display:flex;align-items:center;font-weight:800;
+    font-variant-numeric:tabular-nums}
+  .autoval .u{font-weight:600;color:var(--muted);font-size:.85rem;margin-left:4px}
+  .shared-in{border-style:solid;border-color:var(--accent) !important;background:var(--accent-soft)}
+  .fullw{grid-column:1/-1}
+  .med-line{display:grid;grid-template-columns:1.15fr .85fr;gap:10px;align-items:end;margin-bottom:10px}
+  @media (max-width:520px){.med-line{grid-template-columns:1fr}}
+  /* desaturated phase identity — never red/amber (red reserved for allergy/critical) */
+  :root{--phase-pre:#eef1f5;--phase-pre-ink:#3d4a5c;--phase-intra:#f1eef4;--phase-intra-ink:#4a4356;--phase-post:#edf3f0;--phase-post-ink:#3c4e46}
+  @media (prefers-color-scheme:dark){:root{--phase-pre:#1a2230;--phase-pre-ink:#aab8cc;--phase-intra:#221e2b;--phase-intra-ink:#c3b6d6;--phase-post:#16241d;--phase-post-ink:#a9c8ba}}
+  .phase-tag{display:inline-block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+    padding:3px 10px;border-radius:20px;margin-left:auto}
+  .phase-pre{background:var(--phase-pre);color:var(--phase-pre-ink)}
+  .phase-intra{background:var(--phase-intra);color:var(--phase-intra-ink)}
+  .phase-post{background:var(--phase-post);color:var(--phase-post-ink)}
+  .card h2{flex-wrap:wrap}
+  /* per-phase title accent bar (allergy card keeps its red bar) */
+  .card:not(.allergy-card):has(.phase-pre) h2::before{background:linear-gradient(180deg,var(--phase-pre-ink),#2c3949)}
+  .card:not(.allergy-card):has(.phase-intra) h2::before{background:linear-gradient(180deg,var(--phase-intra-ink),#332d40)}
+  .card:not(.allergy-card):has(.phase-post) h2::before{background:linear-gradient(180deg,var(--phase-post-ink),#2c3d35)}
+  .sharenote{font-size:.82rem;color:var(--accent);font-weight:700;margin-top:2px}
+  .subsec .hint{text-transform:none;letter-spacing:0}
+  /* sticky jump nav + phase section headers (one wayfinding system) */
+  .phasejump{display:flex;gap:6px;margin:2px 0 14px}
+  .phasejump a{flex:1;text-align:center;text-decoration:none;font-size:.76rem;font-weight:800;text-transform:uppercase;
+    letter-spacing:.06em;padding:9px 6px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+    box-shadow:var(--shadow-sm)}
+  .phasejump a.p-pre{color:var(--phase-pre-ink)} .phasejump a.p-intra{color:var(--phase-intra-ink)} .phasejump a.p-post{color:var(--phase-post-ink)}
+  .phasehead{scroll-margin-top:60px;display:flex;align-items:center;gap:10px;margin:24px 0 12px;padding:9px 13px;border-radius:12px;
+    font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;border:1px solid var(--line)}
+  .phasehead.p-pre{background:var(--phase-pre);color:var(--phase-pre-ink)}
+  .phasehead.p-intra{background:var(--phase-intra);color:var(--phase-intra-ink)}
+  .phasehead.p-post{background:var(--phase-post);color:var(--phase-post-ink)}
+  .phasehead .n{margin-left:auto;font-size:.7rem;font-weight:700;opacity:.75;letter-spacing:.03em}
+  /* phase accordions: each nurse opens only their phase */
+  .phaseacc{margin:0 0 14px}
+  .phaseacc>summary.phasehead{cursor:pointer;list-style:none;margin:24px 0 0}
+  .phaseacc>summary.phasehead::-webkit-details-marker{display:none}
+  .phaseacc>summary.phasehead::after{content:'›';margin-left:10px;font-size:1.2em;font-weight:800;transition:transform .15s ease}
+  .phaseacc[open]>summary.phasehead::after{transform:rotate(90deg)}
+  .phaseacc[open]>summary.phasehead{margin-bottom:12px}
+  .phaseacc>summary.phasehead:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .phase-tag{display:none}   /* phase is now shown by the accordion header */
+  @media print{ .phaseacc>summary.phasehead::after{display:none} }
+  /* "Now" time-stamp button */
+  .omrow{position:relative;padding-right:38px;margin-bottom:10px}
+  .omrow .omdel{position:absolute;top:27px;right:0;width:30px;height:30px;border:1.5px solid var(--line);border-radius:9px;
+    background:var(--card);color:var(--muted);font-size:1.05rem;line-height:1;font-weight:700}
+  .omrow .omdel:active{transform:scale(.94)}
+  .omrow .omdel:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .omadd{margin-top:2px}
+  .timewrap{display:flex;gap:6px;align-items:stretch}
+  .timewrap input{flex:1}
+  .nowbtn{flex:0 0 auto;min-height:48px;min-width:56px;padding:0 12px;border:1.5px solid var(--line);background:var(--card);
+    color:var(--accent);border-radius:var(--radius-sm);font-weight:800;font-size:.85rem;cursor:pointer}
+  .nowbtn:active{transform:scale(.96)}
+  .nowbtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  /* read-only shared denominators chip (weight + eGFR) */
+  .rochip{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+  .rochip .c{font-size:.85rem;font-weight:700;color:var(--accent);background:var(--accent-soft);
+    border:1px solid var(--accent);border-radius:20px;padding:5px 12px;font-variant-numeric:tabular-nums}
+  .rochip .c .k{color:var(--muted);font-weight:700;margin-right:5px}
+  /* missing critical-time flag (H3) */
+  .miss{color:var(--warn);font-size:.76rem;font-weight:700;margin-top:4px;min-height:1em}
+  @media print{ textarea.hf{border:1px solid #999;min-height:38px} .autoval,.shared-in{background:#fff;border:1px solid #999;color:#000}
+    .phase-tag,.phasehead{border:1px solid #000;color:#000 !important;background:#fff !important}
+    .phasejump,.nowbtn{display:none} .rochip .c{border:1px solid #000;color:#000 !important;background:#fff !important} }
+</style>
 </head>
 <body>
 <div class="wrap">
   <div id="shell-top"></div>
 
-  <input class="libsearch" id="q" type="search" placeholder="Search calculators… (e.g. heparin, TIMI, contrast)" aria-label="Search calculators">
+  <!-- ============================ TOOL LIBRARY ============================ -->
+  <details class="card" id="toolLib">
+    <summary style="cursor:pointer;font-weight:800;font-size:1.02rem;color:var(--brand-blue)">All tools <span class="hint">(every calculator, grouped by phase)</span></summary>
+    <div id="libBody"></div>
+  </details>
 
-  <div id="recentWrap" style="display:none">
-    <div class="libgroup">Recently used</div>
-    <div class="libgrid" id="recentGrid"></div>
+  <!-- ============================ PRE-PROCEDURE ============================ -->
+  <details class="phaseacc" id="ph-pre" open><summary class="phasehead p-pre">Pre-procedure <span class="n">before the table</span></summary>
+  <div class="card allergy-card">
+    <h2>Allergies &amp; safety <span class="phase-tag phase-pre">Pre</span></h2>
+    <p class="desc">Confirm before any contrast or medication. Patient must be full code to proceed to the table.</p>
+    <div class="grid">
+      <div class="field fullw"><label id="lblAll">Allergy status</label>
+        <div class="seg" role="group" aria-labelledby="lblAll" data-field="allstat">
+          <button type="button" data-v="NKDA">NKDA</button><button type="button" data-v="Allergies">Has allergies</button></div></div>
+      <div class="field fullw"><label for="allergies">Allergies &amp; reactions <span class="hint">(agent → reaction)</span></label>
+        <textarea class="hf" id="allergies" placeholder="e.g. Iodinated contrast → hives; Shellfish → anaphylaxis"></textarea></div>
+      <div class="field fullw"><label for="precautions">Isolation / precautions <span class="hint">(fall, bleeding, latex, MRSA…)</span></label>
+        <input class="hf" id="precautions" type="text" autocomplete="off" placeholder="e.g. Contact precautions; high fall risk"></div>
+    </div>
   </div>
 
-  <nav id="library" aria-label="Calculator library">
-    <div class="libgroup g-dose">Dosing &amp; anticoagulation</div>
-    <div class="libgrid">
-      <a class="libcard cat-dose" href="calc/heparin.html" data-k="heparin bolus units weight ufh"><span class="t">Heparin dose</span><span class="d">Weight-based diagnostic &amp; PCI bolus</span></a>
-      <a class="libcard cat-dose" href="calc/act.html" data-k="act activated clotting time rebolus target hemochron"><span class="t">ACT target &amp; re-bolus</span><span class="d">Status vs target, suggested re-bolus</span></a>
-      <a class="libcard cat-dose" href="calc/drugs.html" data-k="bivalirudin eptifibatide tirofiban cangrelor integrilin angiomax gp iib iiia antiplatelet infusion drip renal"><span class="t">Anticoagulant / antiplatelet dosing</span><span class="d">Bivalirudin · eptifibatide · tirofiban · cangrelor, renal-adjusted</span></a>
-      <a class="libcard cat-dose" href="calc/drips.html" data-k="drip pump rate vasoactive pressor levophed norepinephrine epinephrine dopamine dobutamine phenylephrine neo nitroglycerin nicardipine milrinone vasopressin mcg kg min ml hr infusion"><span class="t">Vasoactive drips</span><span class="d">Dose ↔ mL/h for 9 agents, editable concentrations</span></a>
+  <div class="card">
+    <h2>Procedure &amp; indication <span class="phase-tag phase-pre">Pre</span></h2>
+    <div class="grid">
+      <div class="field"><label for="procDate">Procedure time</label><input class="hf" id="procDate" type="text" autocomplete="off"></div>
+      <div class="field"><label for="operator">Operator / attending</label><input class="hf" id="operator" type="text" autocomplete="off" placeholder="Dr. …"></div>
+      <div class="field fullw"><label for="procedure">Procedure performed / planned</label><input class="hf" id="procedure" type="text" autocomplete="off" placeholder="e.g. LHC + possible PCI; right &amp; left heart cath"></div>
+      <div class="field fullw"><label for="indication">Indication / diagnosis</label><input class="hf" id="indication" type="text" autocomplete="off" placeholder="e.g. NSTEMI; positive stress; CHF workup"></div>
     </div>
+  </div>
 
-    <div class="libgroup g-hemo">Hemodynamics</div>
-    <div class="libgrid">
-      <a class="libcard cat-hemo" href="calc/hemodynamics.html" data-k="hemodynamics fick cardiac output index bsa svr pvr wood gorlin hakki valve area aortic stenosis mitral shunt qp qs step up flamm pulmonary hypertension right heart cath swan"><span class="t">Hemodynamics suite</span><span class="d">Fick CO/CI · SVR/PVR · Gorlin &amp; Hakki valve area · Qp:Qs · PH pattern</span></a>
+  <div class="card">
+    <h2>Background / history <span class="phase-tag phase-pre">Pre</span></h2>
+    <div class="grid">
+      <div class="field fullw"><label for="history">Pertinent cardiac &amp; medical history</label>
+        <textarea class="hf" id="history" placeholder="e.g. HTN, HLD, prior CABG, reduced EF, paroxysmal AF, CKD"></textarea></div>
+      <div class="field"><label id="lblDm">Diabetic</label>
+        <div class="seg" role="group" aria-labelledby="lblDm" data-field="dm"><button type="button" data-v="No">No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblCkd">CKD / dialysis</label>
+        <div class="seg" role="group" aria-labelledby="lblCkd" data-field="ckd"><button type="button" data-v="No">No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblCabg">Prior CABG</label>
+        <div class="seg" role="group" aria-labelledby="lblCabg" data-field="cabg"><button type="button" data-v="No">No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lblAntic">Anticoagulated</label>
+        <div class="seg" role="group" aria-labelledby="lblAntic" data-field="antic"><button type="button" data-v="No">No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field fullw"><label for="homemeds">Relevant home meds / anticoagulant held <span class="hint">(agent, last dose)</span></label>
+        <input class="hf" id="homemeds" type="text" autocomplete="off" placeholder="e.g. apixaban held x2 doses; metformin held"></div>
     </div>
+  </div>
 
-    <div class="libgroup g-contrast">Contrast &amp; renal</div>
-    <div class="libgrid">
-      <a class="libcard cat-contrast" href="calc/contrast.html" data-k="contrast volume max limit tracker cin gurm cigarroa dye"><span class="t">Contrast volume</span><span class="d">Max limit + running tracker (feeds Mehran)</span></a>
-      <a class="libcard cat-contrast" href="calc/mehran.html" data-k="mehran ci-aki cin contrast nephropathy kidney"><span class="t">Mehran CI-AKI score</span><span class="d">Contrast nephropathy risk</span></a>
-      <a class="libcard cat-contrast" href="calc/dyevert.html" data-k="dyevert contrast reduction system aki ci-aki high risk patient trigger tier deploy device"><span class="t">DyeVert determination</span><span class="d">Should this patient get contrast reduction?</span></a>
+  <div class="card">
+    <h2>Lab values <span class="phase-tag phase-pre">Pre</span></h2>
+    <p class="desc">Hemoglobin, creatinine &amp; eGFR are <strong>shared</strong> — entering them here fills them for every calculator (and vice-versa). eGFR calculates automatically.</p>
+    <div class="rochip" id="denoms" aria-label="Dosing denominators"></div>
+    <div class="lab-grid">
+      <div class="field"><label for="hgbShared">Hemoglobin <span class="hint">(g/dL)</span></label><input class="hf shared-in" id="hgbShared" type="number" inputmode="decimal" step="0.1"><div class="sharenote">shared</div></div>
+      <div class="field"><label for="scrShared">Creatinine <span class="hint">(mg/dL)</span></label><input class="hf shared-in" id="scrShared" type="number" inputmode="decimal" step="0.01"><div class="sharenote">shared</div></div>
+      <div class="field"><label>eGFR <span class="hint">(MDRD)</span></label><div class="autoval" id="aGfr">—</div></div>
+      <div class="field"><label for="hct">Hematocrit <span class="hint">(%)</span></label><input class="hf" id="hct" type="number" inputmode="decimal" step="0.1"></div>
+      <div class="field"><label for="plt">Platelets <span class="hint">(k/µL)</span></label><input class="hf" id="plt" type="number" inputmode="numeric" step="1"></div>
+      <div class="field"><label for="inr">INR</label><input class="hf" id="inr" type="number" inputmode="decimal" step="0.1"></div>
+      <div class="field"><label for="ptt">aPTT <span class="hint">(s)</span></label><input class="hf" id="ptt" type="number" inputmode="decimal" step="1"></div>
+      <div class="field"><label for="potassium">Potassium <span class="hint">(mmol/L)</span></label><input class="hf" id="potassium" type="number" inputmode="decimal" step="0.1"></div>
+      <div class="field"><label for="sodium">Sodium <span class="hint">(mmol/L)</span></label><input class="hf" id="sodium" type="number" inputmode="numeric" step="1"></div>
+      <div class="field"><label for="glucose">Glucose <span class="hint">(mg/dL)</span></label><input class="hf" id="glucose" type="number" inputmode="numeric" step="1"></div>
+      <div class="field"><label for="troponin">Troponin</label><input class="hf" id="troponin" type="text" autocomplete="off" placeholder="peak / trend"></div>
+      <div class="field"><label for="a1c">HbA1c <span class="hint">(%)</span></label><input class="hf" id="a1c" type="number" inputmode="decimal" step="0.1"></div>
     </div>
+  </div>
 
-    <div class="libgroup g-risk">Risk scores</div>
-    <div class="libgrid">
-      <a class="libcard cat-risk" href="calc/bleed-risk.html" data-k="bleeding risk cathpci acc ncdr hemorrhage"><span class="t">Bleeding risk (ACC CathPCI)</span><span class="d">Estimated post-PCI bleeding event</span></a>
-      <a class="libcard cat-risk" href="calc/timi.html" data-k="timi ua nstemi stemi acs mortality unstable angina"><span class="t">TIMI risk scores</span><span class="d">UA/NSTEMI (14-day) &amp; STEMI (30-day)</span></a>
-      <a class="libcard cat-risk" href="calc/zwolle.html" data-k="zwolle primary pci early discharge killip stemi"><span class="t">Zwolle score</span><span class="d">Early discharge after primary PCI</span></a>
+  <div class="card">
+    <h2>Pre-procedure medications <span class="phase-tag phase-pre">Pre</span></h2>
+    <p class="desc">Record the actual agent, dose &amp; time <em>given</em>. Anticoagulation (heparin) is given on the table — record it under <a href="#ph-intra" id="goIntra">Intra-procedure</a>.</p>
+    <div class="grid">
+      <div class="field"><label for="asa">Aspirin <span class="hint">(dose)</span></label><input class="hf" id="asa" type="text" autocomplete="off" placeholder="dose given"></div>
+      <div class="field"><label for="asaTime">Time given</label><input class="hf" id="asaTime" type="text" autocomplete="off"></div>
     </div>
-  </nav>
+    <div class="grid">
+      <div class="field"><label for="p2y12">P2Y12 inhibitor</label>
+        <input class="hf" id="p2y12" list="p2y12opts" type="text" autocomplete="off" placeholder="agent">
+        <datalist id="p2y12opts"><option value="clopidogrel (Plavix)"><option value="ticagrelor (Brilinta)"><option value="prasugrel (Effient)"><option value="none"></datalist></div>
+      <div class="field"><label for="p2y12Dose">Dose</label><input class="hf" id="p2y12Dose" type="text" autocomplete="off" placeholder="dose given"></div>
+      <div class="field"><label for="p2y12Time">Time given</label><input class="hf" id="p2y12Time" type="text" autocomplete="off"></div>
+    </div>
+    <div id="proBlock" style="display:none">
+      <div class="subsec">Contrast-allergy prophylaxis <span class="hint">(shown because allergies flagged)</span></div>
+      <div class="med-grid">
+        <div class="field"><label for="methylpred">Methylprednisolone <span class="hint">(Solu-Medrol)</span></label><input class="hf" id="methylpred" type="text" autocomplete="off" placeholder="dose given"></div>
+        <div class="field"><label for="diphenhydramine">Diphenhydramine <span class="hint">(Benadryl)</span></label><input class="hf" id="diphenhydramine" type="text" autocomplete="off" placeholder="dose given"></div>
+        <div class="field"><label for="famotidine">Famotidine <span class="hint">(Pepcid)</span></label><input class="hf" id="famotidine" type="text" autocomplete="off" placeholder="dose given"></div>
+      </div>
+    </div>
+    <div class="subsec">Other <span class="hint">(physician requests — add as many as ordered)</span></div>
+    <div id="omList"></div>
+    <button type="button" class="btn omadd" id="omAdd">＋ Add another med</button>
+  </div>
 
-  <div class="flag" id="noResults" style="display:none">No calculators match that search.</div>
+  <div class="card">
+    <h2>Planned access <span class="phase-tag phase-pre">Pre</span></h2>
+    <p class="desc">Preferred access decided pre-procedure. Actual access is confirmed in the room below.</p>
+    <div class="grid">
+      <div class="field fullw"><label id="lblPlan">Preferred site</label>
+        <div class="seg" role="group" aria-labelledby="lblPlan" data-field="planaccess">
+          <button type="button" data-v="R radial">R radial</button><button type="button" data-v="L radial">L radial</button><button type="button" data-v="R femoral">R femoral</button><button type="button" data-v="L femoral">L femoral</button></div></div>
+      <div class="field fullw"><label for="planNote">Notes <span class="hint">(e.g. venous access planned for right heart cath)</span></label>
+        <input class="hf" id="planNote" type="text" autocomplete="off"></div>
+    </div>
+  </div>
+
+  </details>
+
+  <!-- ============================ INTRA-PROCEDURE ============================ -->
+  <details class="phaseacc" id="ph-intra"><summary class="phasehead p-intra">Intra-procedure <span class="n">in the room</span></summary>
+  <div class="card">
+    <h2>Case type &amp; access <span class="phase-tag phase-intra">Intra</span></h2>
+    <p class="desc">Select the case type to show the relevant sheaths. Actual route may differ from the plan.</p>
+    <div class="grid">
+      <div class="field fullw"><label id="lblCase">Case type</label>
+        <div class="seg" role="group" aria-labelledby="lblCase" data-field="casetype">
+          <button type="button" data-v="LHC / PCI">LHC / PCI</button><button type="button" data-v="RHC">RHC</button><button type="button" data-v="R + L heart cath">R + L heart cath</button><button type="button" data-v="Other">Other</button></div></div>
+    </div>
+    <div id="artBlock">
+      <div class="subsec">Arterial access</div>
+      <div class="grid">
+        <div class="field fullw"><label id="lblArt">Site</label>
+          <div class="seg" role="group" aria-labelledby="lblArt" data-field="artsite">
+            <button type="button" data-v="R radial">R radial</button><button type="button" data-v="L radial">L radial</button><button type="button" data-v="R femoral">R femoral</button><button type="button" data-v="L femoral">L femoral</button></div></div>
+      </div>
+    </div>
+    <div id="venBlock" style="display:none">
+      <div class="subsec">Venous access</div>
+      <div class="grid">
+        <div class="field fullw"><label id="lblVen">Site</label>
+          <div class="seg" role="group" aria-labelledby="lblVen" data-field="vensite">
+            <button type="button" data-v="R femoral">R femoral</button><button type="button" data-v="L femoral">L femoral</button><button type="button" data-v="R IJ">R IJ</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sheath disposition <span class="phase-tag phase-intra">Intra</span></h2>
+    <p class="desc">Documents how the sheaths were handled — this tells the post-procedure nurse what to expect.</p>
+    <div class="grid">
+      <div class="field fullw"><label id="lblSheathStatus">Sheath status</label>
+        <div class="seg" role="group" aria-labelledby="lblSheathStatus" data-field="sheathstatus">
+          <button type="button" data-v="Pulled in lab">Pulled in lab</button><button type="button" data-v="In — pull in recovery">In — pull in recovery</button></div></div>
+      <div class="field fullw"><label id="lblHemo">Hemostasis / closure</label>
+        <div class="seg" role="group" aria-labelledby="lblHemo" data-field="hemostasis">
+          <button type="button" data-v="TR band">TR band</button><button type="button" data-v="Manual">Manual</button><button type="button" data-v="Perclose">Perclose</button><button type="button" data-v="Angio-Seal">Angio-Seal</button><button type="button" data-v="Mynx">Mynx</button></div></div>
+    </div>
+    <div id="tbandBlock" style="display:none">
+      <div class="subsec">TR band</div>
+      <div class="grid">
+        <div class="field"><label for="bandAir">Air in band <span class="hint">(mL)</span></label><input class="hf" id="bandAir" type="number" inputmode="decimal" step="1" placeholder="mL"></div>
+        <div class="field fullw"><label id="lblTbtype">Case</label>
+          <div class="seg" role="group" aria-labelledby="lblTbtype" data-field="tbandtype">
+            <button type="button" data-v="Diagnostic">Diagnostic</button><button type="button" data-v="Intervention">Intervention</button></div></div>
+        <div class="field"><label for="tbandApplied">Band applied at</label><input class="hf" id="tbandApplied" type="text" autocomplete="off" placeholder="time"></div>
+        <div class="field"><label for="tbandRemove">Air removal can begin <span class="hint">(auto: +1 h diagnostic / +2 h intervention)</span></label><input class="hf" id="tbandRemove" type="text" autocomplete="off" placeholder="time"></div>
+      </div>
+    </div>
+    <div id="deviceBlock" style="display:none">
+      <div class="subsec">Closure device</div>
+      <div class="grid">
+        <div class="field"><label for="deployTime">Time deployed</label><input class="hf" id="deployTime" type="text" autocomplete="off" placeholder="time"></div>
+        <div class="field"><label for="flatUntil">Lay flat until <span class="hint">(auto: +4 h)</span></label><input class="hf" id="flatUntil" type="text" autocomplete="off" placeholder="time"></div>
+      </div>
+    </div>
+    <div id="manualBlock" style="display:none">
+      <div class="subsec">Manual pressure</div>
+      <div class="grid">
+        <div class="field"><label for="manualPullTime">Pressure held / pulled at</label><input class="hf" id="manualPullTime" type="text" autocomplete="off" placeholder="time"></div>
+        <div class="field"><label for="manualFlatUntil">Lay flat until <span class="hint">(auto: +6 h)</span></label><input class="hf" id="manualFlatUntil" type="text" autocomplete="off" placeholder="time"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Medications given in room <span class="phase-tag phase-intra">Intra</span></h2>
+    <p class="desc">Everything administered during the case. Record the actual dose given.</p>
+    <div class="med-grid">
+      <div class="field"><label for="midazolam">Midazolam <span class="hint">(Versed)</span></label><input class="hf" id="midazolam" type="text" autocomplete="off" placeholder="dose given"></div>
+      <div class="field"><label for="fentanyl">Fentanyl</label><input class="hf" id="fentanyl" type="text" autocomplete="off" placeholder="dose given"></div>
+      <div class="field"><label for="heparin">Heparin <span class="hint">(total units)</span></label><input class="hf" id="heparin" type="text" autocomplete="off" placeholder="units given"></div>
+      <div class="field"><label for="act">Final ACT <span class="hint">(s)</span></label><input class="hf" id="act" type="text" autocomplete="off"></div>
+      <div class="field"><label for="eptifibatide">Eptifibatide <span class="hint">(Integrilin)</span></label><input class="hf" id="eptifibatide" type="text" autocomplete="off" placeholder="bolus / infusion"></div>
+      <div class="field"><label for="antiplt">Antiplatelet given</label><input class="hf" id="antiplt" list="antipltopts" type="text" autocomplete="off" placeholder="agent · dose given">
+        <datalist id="antipltopts"><option value="ticagrelor (Brilinta)"><option value="clopidogrel (Plavix)"><option value="cangrelor (Kengreal)"></datalist></div>
+      <div class="field"><label for="antiemetic">Antiemetic</label><input class="hf" id="antiemetic" list="antiemopts" type="text" autocomplete="off" placeholder="agent · dose given">
+        <datalist id="antiemopts"><option value="ondansetron (Zofran)"></datalist></div>
+      <div class="field"><label for="ivfIntra">IV fluids given</label><input class="hf" id="ivfIntra" type="text" autocomplete="off" placeholder="type · volume"></div>
+      <div class="field"><label for="otherIntra">Other</label><input class="hf" id="otherIntra" type="text" autocomplete="off" placeholder="agent · dose given"></div>
+    </div>
+    <div class="subsec">Contrast</div>
+    <div class="grid">
+      <div class="field"><label id="lblContrast">Agent</label>
+        <div class="seg" role="group" aria-labelledby="lblContrast" data-field="contrast">
+          <button type="button" data-v="Omnipaque">Omnipaque</button><button type="button" data-v="Visipaque">Visipaque</button></div></div>
+      <div class="field"><label for="contrastVol">Volume <span class="hint">(mL)</span></label><input class="hf shared-in" id="contrastVol" type="number" inputmode="numeric" step="1" placeholder="mL"><div class="sharenote" id="cvNote">shared</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Findings &amp; course <span class="phase-tag phase-intra">Intra</span></h2>
+    <div class="grid">
+      <div class="field fullw"><label for="findings">Findings / vessels treated</label><textarea class="hf" id="findings" placeholder="e.g. mid-LAD stented (1 DES); RCA non-obstructive; RHC: RA/PA/PCWP pressures"></textarea></div>
+      <div class="field fullw"><label for="devices">Devices / support <span class="hint">(IABP, Impella, temp pacer)</span></label><input class="hf" id="devices" type="text" autocomplete="off" placeholder="none / device"></div>
+      <div class="field fullw"><label for="complications">Complications</label><input class="hf" id="complications" type="text" autocomplete="off" placeholder="none / describe"></div>
+    </div>
+  </div>
+
+  </details>
+
+  <!-- ============================ POST-PROCEDURE ============================ -->
+  <details class="phaseacc" id="ph-post"><summary class="phasehead p-post">Post-procedure <span class="n">recovery &amp; disposition</span></summary>
+  <div class="card">
+    <h2>Post-procedure recovery <span class="phase-tag phase-post">Post</span></h2>
+    <p class="desc">Recovery monitoring before transfer to floor or discharge home.</p>
+    <div class="grid">
+      <div class="field fullw"><label id="lblPulse">Access site / distal pulse</label>
+        <div class="seg" role="group" aria-labelledby="lblPulse" data-field="pulse">
+          <button type="button" data-v="Intact, soft">Intact</button><button type="button" data-v="Diminished">Diminished</button><button type="button" data-v="Recheck">Recheck</button></div></div>
+      <div class="field fullw"><label for="siteCond">Site condition</label><input class="hf" id="siteCond" type="text" autocomplete="off" placeholder="dry, no hematoma"></div>
+      <div class="field fullw"><label for="drips">Active drips / infusions</label><input class="hf" id="drips" type="text" autocomplete="off" placeholder="e.g. eptifibatide infusion; nitroglycerin"></div>
+      <div class="field fullw"><label for="postFluids">Ongoing IV fluids / hydration orders</label><input class="hf" id="postFluids" type="text" autocomplete="off" placeholder="e.g. NS at set rate per CI-AKI protocol"></div>
+      <div class="field fullw"><label for="postlabs">Labs to redraw / follow-up checks</label><input class="hf" id="postlabs" type="text" autocomplete="off" placeholder="e.g. creatinine in AM; CBC; site checks per protocol"></div>
+      <div class="field fullw"><label for="dapt">Antiplatelet / DAPT plan</label><input class="hf" id="dapt" type="text" autocomplete="off" placeholder="aspirin + P2Y12 inhibitor, duration"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Disposition &amp; handoff <span class="phase-tag phase-post">Post</span></h2>
+    <div class="grid">
+      <div class="field fullw"><label id="lblDispo">Destination</label>
+        <div class="seg" role="group" aria-labelledby="lblDispo" data-field="dispo">
+          <button type="button" data-v="CCU">CCU</button><button type="button" data-v="Telemetry">Tele</button><button type="button" data-v="Floor">Floor</button><button type="button" data-v="Discharge">Discharge</button></div></div>
+      <div class="field fullw"><label for="outstanding">Outstanding tasks / watch-fors</label><textarea class="hf" id="outstanding" placeholder="e.g. watch access site; hold antihypertensives; family updated"></textarea></div>
+      <div class="field"><label for="reportTo">Report given to</label><input class="hf" id="reportTo" type="text" autocomplete="off" placeholder="receiving RN"></div>
+      <div class="field"><label for="reportBy">Reported by</label><input class="hf" id="reportBy" type="text" autocomplete="off" placeholder="cath lab RN / tech"></div>
+    </div>
+    <div class="note">Tap <strong>Copy</strong> in the header for an SBAR-formatted text summary, or use your browser's Print (⌘/Ctrl-P) for a paper handoff. Reach any calculator from the dock at the bottom.</div>
+  </div>
+  </details>
 
   <div id="shell-bottom"></div>
 </div>
-
-<script src="assets/core.js"></script>
+<script src="assets/core.js?v=3.7.0"></script>
 <script>
-CM.init({
-  title:'Cath Lab Tools',
-  desc:'Enter the patient once — every calculator shares it.',
-  home:true
-});
-/* recently used */
 (function(){
-  var rec=CM.recent(), grid=document.getElementById('recentGrid');
-  rec.forEach(function(href){
-    var card=document.querySelector('#library .libcard[href="'+href+'"]');
-    if(card)grid.appendChild(card.cloneNode(true));
-  });
-  if(grid.children.length)document.getElementById('recentWrap').style.display='';
-})();
-/* search */
-(function(){
-  var q=document.getElementById('q');
-  q.addEventListener('input',function(){
-    var t=q.value.trim().toLowerCase(), any=false;
-    document.querySelectorAll('.libcard').forEach(function(c){
-      var hit=!t || (c.textContent+' '+(c.getAttribute('data-k')||'')).toLowerCase().indexOf(t)>=0;
-      c.style.display=hit?'':'none'; if(hit)any=true;
-    });
-    document.querySelectorAll('.libgroup,.libgrid').forEach(function(g){
-      if(g.classList.contains('libgrid')){
-        var vis=g.querySelector('.libcard:not([style*="none"])');
-        g.style.display=vis?'':'none';
-        if(g.previousElementSibling&&g.previousElementSibling.classList.contains('libgroup'))
-          g.previousElementSibling.style.display=vis?'':'none';
+  var $=CM.$, HK=CM.storeKey('handoff');
+  function loadHO(){ try{ return JSON.parse(localStorage.getItem(HK)||'{}'); }catch(e){ return {}; } }
+  function saveHO(){ try{ localStorage.setItem(HK,JSON.stringify(HO)); }catch(e){} }
+  var HO=loadHO();
+
+  /* wipe fields inside a block so hidden/irrelevant values can never reach the SBAR */
+  function clearBlock(el){
+    if(!el) return;
+    el.querySelectorAll('.hf').forEach(function(i){ if(i.value!==''){ i.value=''; if(i.id) HO[i.id]=''; }
+      i.removeAttribute('data-auto'); if(i.id) delete HO['auto:'+i.id]; });
+    el.querySelectorAll('.miss').forEach(function(m){ m.parentNode.removeChild(m); });
+    el.querySelectorAll('.seg').forEach(function(g){ var f=g.getAttribute('data-field');
+      g.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+      CM.a11ySync(g);
+      if(f) delete HO['seg:'+f]; });
+    saveHO();
+  }
+  function toggleBlock(el,show,clear){ if(!el) return; var wasShown=el.style.display!=='none';
+    el.style.display=show?'':'none'; if(clear && wasShown && !show) clearBlock(el); }
+  function updateCaseType(clear){
+    var ct=segv('casetype');
+    toggleBlock($('artBlock'), ct!=='RHC', clear);
+    toggleBlock($('venBlock'), (ct==='RHC'||ct==='R + L heart cath'||ct==='Other'), clear);
+  }
+  function updateHemostasis(clear){
+    var h=segv('hemostasis');
+    toggleBlock($('tbandBlock'), h==='TR band', clear);
+    toggleBlock($('deviceBlock'), (h==='Perclose'||h==='Angio-Seal'||h==='Mynx'), clear);
+    toggleBlock($('manualBlock'), h==='Manual', clear);
+  }
+  function updateProphylaxis(clear){ toggleBlock($('proBlock'), segv('allstat')==='Allergies', clear); }
+
+  function bindFields(){
+    document.querySelectorAll('.hf').forEach(function(el){
+      if(el.tagName==='TEXTAREA'||el.type==='text'){ /* stop iOS "correcting" drug names */
+        el.setAttribute('autocapitalize','off'); el.setAttribute('autocorrect','off'); el.setAttribute('spellcheck','false');
       }
+      if(el.id==='hgbShared'||el.id==='scrShared') return; /* shared: handled below */
+      if(el.id && HO[el.id]!=null && HO[el.id]!=='') el.value=HO[el.id];
+      if(el.id && HO['auto:'+el.id]) el.setAttribute('data-auto','1');
+      var ev=(el.tagName==='SELECT')?'change':'input';
+      el.addEventListener(ev,function(){ HO[el.id]=el.value;
+        if(el.getAttribute('data-auto')==='1'){ el.removeAttribute('data-auto'); delete HO['auto:'+el.id]; } /* hand-edit wins */
+        saveHO(); });
     });
-    document.getElementById('noResults').style.display=any?'none':'';
+    document.querySelectorAll('.card .seg').forEach(function(g){
+      var f=g.getAttribute('data-field'); if(!f) return;
+      var saved=HO['seg:'+f];
+      g.querySelectorAll('button').forEach(function(b){
+        var on=(saved!=null)&&b.getAttribute('data-v')===saved;
+        b.classList.toggle('on',on);
+      });
+      CM.a11ySync(g);
+      g.addEventListener('click',function(e){
+        var b=e.target.closest('button'); if(!b) return;
+        g.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+        b.classList.add('on'); CM.a11ySync(g);
+        HO['seg:'+f]=b.getAttribute('data-v'); saveHO();
+        if(f==='casetype'){ updateCaseType(true); CM.announce('Access fields updated'); }
+        if(f==='hemostasis'){ updateHemostasis(true); CM.announce('Closure fields updated'); }
+        if(f==='allstat') updateProphylaxis(true);
+        if(f==='tbandtype') autoHolds();
+      });
+    });
+  }
+  function segv(f){ return HO['seg:'+f]||''; }
+  function fv(id){ var el=$(id); return el&&el.value?el.value.trim():''; }
+
+  /* ---- shared labs: two-way bound to the app-wide patient state ---- */
+  function bindShared(){
+    ['hgbShared','scrShared'].forEach(function(hid){
+      var key=(hid==='hgbShared')?'hgb':'scr';
+      $(hid).addEventListener('input',function(){
+        var v=parseFloat(this.value); v=(v&&v>0)?v:null;
+        CM.setPatient(key,v);                 /* update shared state everywhere */
+        var pin=$(key); if(pin) pin.value=(v!=null?v:''); /* keep patient-panel field in sync */
+      });
+    });
+    /* contrast volume: two-way bound to the shared tracker (Contrast / Mehran / DyeVert) */
+    var cv=$('contrastVol');
+    if(cv){
+      cv.addEventListener('input',function(){
+        var v=parseFloat(this.value); CM.setContrastUsed((v&&v>0)?v:0);
+      });
+      var stored=null; try{ stored=localStorage.getItem(CM.storeKey('contrast')); }catch(e){}
+      if(stored!=null){ var u=CM.contrastUsed(); cv.value=(u?u:''); HO.contrastVol=cv.value; saveHO(); } /* tracker wins */
+      else{ var hv=parseFloat(cv.value); if(hv>0) CM.setContrastUsed(hv); } /* seed tracker from an old record */
+    }
+  }
+  function syncShared(){
+    var P=CM.patient(), d=CM.derived();
+    var h=$('hgbShared'), s=$('scrShared'), g=$('aGfr');
+    if(h && document.activeElement!==h) h.value=(P.hgb!=null?P.hgb:'');
+    if(s && document.activeElement!==s) s.value=(P.scr!=null?P.scr:'');
+    if(g) g.innerHTML=(d.egfr!=null?(d.egfr.toFixed(0)+' <span class="u">mL/min</span>'):'—');
+    /* contrast volume mirrors the shared tracker (don't clobber while typing here) */
+    var cv=$('contrastVol');
+    if(cv && document.activeElement!==cv){
+      var u=CM.contrastUsed(), nv=(u?String(u):'');
+      if(cv.value!==nv){ cv.value=nv; HO.contrastVol=nv; saveHO(); }
+    }
+    var note=$('cvNote');
+    if(note){
+      var used=CM.contrastUsed(), mc=null;
+      if(!P.dial && P.kg!=null && P.scr!=null && d.egfr!=null) mc=CM.F.maxContrast(P.kg,P.scr,d.egfr,3);
+      if(mc && used>mc.max){ note.className='err danger'; note.textContent=used+' mL — exceeds max '+mc.max.toFixed(0)+' mL'; }
+      else{ note.className='sharenote'; note.textContent='shared'+(mc?' · of max '+mc.max.toFixed(0)+' mL':''); }
+    }
+    var dn=$('denoms'); if(dn){ var bits='';
+      if(P.kg!=null) bits+='<span class="c"><span class="k">Wt</span>'+P.kg.toFixed(1)+' kg</span>';
+      if(d.egfr!=null) bits+='<span class="c"><span class="k">eGFR</span>'+d.egfr.toFixed(0)+'</span>';
+      if(d.bmi!=null) bits+='<span class="c"><span class="k">BMI</span>'+d.bmi.toFixed(1)+'</span>';
+      dn.innerHTML=bits; dn.style.display=bits?'':'none'; }
+  }
+
+  /* "Now" buttons stamp the current time into event-time fields (C9) */
+  function stampNow(){ var n=new Date(); return n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+  function addNowButtons(){
+    ['asaTime','p2y12Time','tbandApplied','deployTime','manualPullTime'].forEach(function(id){
+      var inp=$(id); if(!inp||inp.__now) return; inp.__now=true;
+      var wrap=document.createElement('div'); wrap.className='timewrap';
+      inp.parentNode.insertBefore(wrap,inp); wrap.appendChild(inp);
+      var btn=document.createElement('button'); btn.type='button'; btn.className='nowbtn'; btn.textContent='Now';
+      btn.setAttribute('aria-label','Stamp current time');
+      btn.addEventListener('click',function(){ inp.value=stampNow(); HO[id]=inp.value; saveHO();
+        checkTime(inp); autoHolds(); CM.announce('Time set to '+inp.value); });
+      wrap.appendChild(btn);
+    });
+  }
+  /* ---- Other pre-procedure meds: repeatable agent/dose/time rows ---- */
+  function omRows(){
+    if(!HO.otherMeds){
+      HO.otherMeds=[];
+      /* migrate the old single agent/dose pair */
+      if(HO.otherPre||HO.otherPreDose){
+        HO.otherMeds.push({agent:HO.otherPre||'',dose:HO.otherPreDose||'',time:''});
+        delete HO.otherPre; delete HO.otherPreDose; saveHO();
+      }
+    }
+    return HO.otherMeds;
+  }
+  function buildOM(){
+    var list=$('omList'); if(!list) return;
+    var rows=omRows(); if(!rows.length) rows.push({agent:'',dose:'',time:''});
+    var h='';
+    rows.forEach(function(r,i){
+      h+='<div class="med-grid omrow" data-i="'+i+'">'
+        +'<div class="field"><label for="omA'+i+'">Med '+(i+1)+' <span class="hint">(agent)</span></label>'
+        +'<input id="omA'+i+'" class="omf" data-k="agent" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="agent" value="'+CM.esc(r.agent||'')+'"></div>'
+        +'<div class="field"><label for="omD'+i+'">Dose</label>'
+        +'<input id="omD'+i+'" class="omf" data-k="dose" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="dose given" value="'+CM.esc(r.dose||'')+'"></div>'
+        +'<div class="field"><label for="omT'+i+'">Time given</label><div class="timewrap">'
+        +'<input id="omT'+i+'" class="omf" data-k="time" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g. 09:40" value="'+CM.esc(r.time||'')+'">'
+        +'<button type="button" class="nowbtn" data-now="'+i+'" aria-label="Stamp current time for med '+(i+1)+'">Now</button></div></div>'
+        +(rows.length>1?'<button type="button" class="omdel" data-del="'+i+'" aria-label="Remove med '+(i+1)+'">×</button>':'')
+        +'</div>';
+    });
+    list.innerHTML=h;
+  }
+  function wireOM(){
+    var list=$('omList'), add=$('omAdd'); if(!list||!add) return;
+    list.addEventListener('input',function(e){
+      var el=e.target; if(!el.classList||!el.classList.contains('omf')) return;
+      var row=el.closest('.omrow'); if(!row) return;
+      var i=+row.getAttribute('data-i'), rows=omRows();
+      if(!rows[i]) return;
+      rows[i][el.getAttribute('data-k')]=el.value; saveHO();
+    });
+    list.addEventListener('click',function(e){
+      var nb=e.target.closest('[data-now]');
+      if(nb){ var i=+nb.getAttribute('data-now'), inp=$('omT'+i);
+        if(inp&&omRows()[i]){ inp.value=stampNow(); omRows()[i].time=inp.value; saveHO();
+          CM.announce('Time set to '+inp.value); } return; }
+      var db=e.target.closest('[data-del]');
+      if(db){ var j=+db.getAttribute('data-del');
+        omRows().splice(j,1); saveHO(); buildOM();
+        CM.announce('Med row removed'); }
+    });
+    add.addEventListener('click',function(){
+      omRows().push({agent:'',dose:'',time:''}); saveHO(); buildOM();
+      var a=$('omA'+(omRows().length-1)); if(a)a.focus();
+    });
+  }
+
+  /* auto-compute hold times from the event time + standard offsets (editable) */
+  /* tolerant time parse: "2:30 PM", "2:30pm", "14:30", "1430", "930", "2pm" */
+  function parseT(s){
+    s=(s||'').trim(); if(!s) return null;
+    var ap='', m=s.match(/^(.*?)\s*([AaPp])\.?\s*[Mm]?\.?$/);
+    if(m && m[1]!==''){ ap=(m[2].toUpperCase()==='P')?'PM':'AM'; s=m[1]; }
+    var h, mn;
+    m=s.match(/^(\d{1,2}):(\d{2})$/);
+    if(m){ h=+m[1]; mn=+m[2]; }
+    else if(s.match(/^\d{3,4}$/)){ h=+s.substring(0,s.length-2); mn=+s.substring(s.length-2); }
+    else if(ap && s.match(/^\d{1,2}$/)){ h=+s; mn=0; }
+    else return null;
+    if(mn>59) return null;
+    if(ap){ if(h<1||h>12) return null; if(ap==='PM'&&h<12)h+=12; if(ap==='AM'&&h===12)h=0; }
+    else if(h>23) return null;
+    return h*60+mn;
+  }
+  function fmtT(mins){ mins=((mins%1440)+1440)%1440; var h=Math.floor(mins/60), m=mins%60, ap=h>=12?'PM':'AM', hh=h%12; if(hh===0)hh=12;
+    return (hh<10?'0'+hh:hh)+':'+(m<10?'0'+m:m)+' '+ap; }
+  /* .miss hint under a time field (parse failures + source/offset mismatches) */
+  function setMiss(id,msg){ var el=$(id); if(!el) return;
+    var host=el.closest('.field')||el.parentNode, m=host?host.querySelector('.miss'):null;
+    if(msg){ if(!m){ m=document.createElement('div'); m.className='miss'; host.appendChild(m); } m.textContent=msg; }
+    else if(m){ m.parentNode.removeChild(m); } }
+  function checkTime(el){ if(!el||!el.id) return;
+    var v=(el.value||'').trim();
+    setMiss(el.id,(v && parseT(v)==null)?'Time not recognized — try 14:30 or 2:30 PM':''); }
+  /* auto-filled fields carry data-auto and are recomputed whenever the source
+     time changes; hand-editing a field clears the flag (bindFields) so the
+     nurse's value always wins — a disagreement just gets a .miss hint */
+  function autoPair(srcId,destId,hrs,label){
+    var dest=$(destId); if(!dest) return;
+    var sm=parseT(fv(srcId));
+    if(sm==null) return;                                 /* no/unparsable source: parse check flags it */
+    var em=((sm+hrs*60)%1440+1440)%1440;
+    if(dest.value===''||dest.getAttribute('data-auto')==='1'){
+      if(document.activeElement===dest) return;          /* don't clobber while editing */
+      var exp=fmtT(em);
+      if(dest.value!==exp){ dest.value=exp; HO[destId]=exp; }
+      dest.setAttribute('data-auto','1'); HO['auto:'+destId]=1; saveHO();
+      setMiss(destId,'');
+    }else{
+      var dm=parseT(dest.value); if(dm==null) return;    /* parse error already flagged */
+      setMiss(destId, dm!==em ? ('Doesn’t match '+label+' + '+hrs+' h') : '');
+    }
+  }
+  function autoHolds(){
+    autoPair('deployTime','flatUntil',4,'deploy time');            /* closure device: lay flat +4 h */
+    autoPair('manualPullTime','manualFlatUntil',6,'pull time');    /* manual pull:   lay flat +6 h */
+    var off=(segv('tbandtype')==='Intervention')?2:1;              /* TR band: air removal +1 h dx / +2 h PCI */
+    autoPair('tbandApplied','tbandRemove',off,'applied time');
+  }
+  var TIME_FIELDS=['procDate','asaTime','p2y12Time','tbandApplied','tbandRemove','deployTime','flatUntil','manualPullTime','manualFlatUntil'];
+  function wireAutoHolds(){
+    TIME_FIELDS.forEach(function(id){ var el=$(id); if(!el) return;
+      el.addEventListener('input',function(){ checkTime(el); autoHolds(); });
+      checkTime(el); });   /* validate restored values on load */
+  }
+
+  /* tool library: every calculator grouped by phase (the dock truncates on phones) */
+  function buildLib(){
+    var host=$('libBody'); if(!host) return;
+    var groups=[{k:'pre',t:'Pre-procedure'},{k:'intra',t:'Intra-procedure'},{k:'post',t:'Post / disposition'}], html='';
+    groups.forEach(function(gr){
+      var items=CM.NAV.filter(function(n){ return n.phase===gr.k && n.href!=='index.html'; });
+      if(!items.length) return;
+      html+='<div class="libgroup">'+gr.t+'</div><div class="libgrid">';
+      items.forEach(function(n){
+        html+='<a class="libcard cat-'+n.cat+'" href="'+n.href+'"><span class="t">'+CM.esc(n.label)+'</span></a>';
+      });
+      html+='</div>';
+    });
+    host.innerHTML=html;
+  }
+
+  function line(lbl,val){ return val ? (lbl+': '+val+'\n') : ''; }
+  /* critical (red-line) fields ALWAYS render — empty shows "—", never omitted */
+  function crit(lbl,val){ return lbl+': '+(val&&(''+val).length?val:'—')+'\n'; }
+  function vis(id){ var el=$(id); return el && el.style.display!=='none'; }
+  function basics(){
+    var P=CM.patient(), d=CM.derived(), b=[];
+    if(P.age!=null) b.push(P.age+' y');
+    if(P.sex) b.push(P.sex==='F'?'Female':'Male');
+    if(P.kg!=null) b.push(P.kg.toFixed(1)+' kg');
+    if(P.cm!=null){ var ti=P.cm/2.54,f=Math.floor(ti/12),i=Math.round(ti-f*12); if(i===12){f++;i=0;} b.push(P.cm.toFixed(0)+' cm ('+f+"'"+i+'")'); }
+    if(d.bmi!=null) b.push('BMI '+d.bmi.toFixed(1));
+    if(P.kg!=null&&P.cm!=null) b.push('BSA '+CM.F.bsaMosteller(P.kg,P.cm).toFixed(2)+' m²');
+    return b.join(' · ');
+  }
+
+  function buildReport(){
+    var P=CM.patient(), d=CM.derived(), T='';
+    T+='CLARA MAASS MEDICAL CENTER — CATH LAB PERI-PROCEDURE HANDOFF\n';
+    T+='='.repeat(58)+'\n';
+    T+=line('Patient', P.pid);
+    T+=line('Basics', basics());
+    var all = segv('allstat')==='NKDA' ? 'NKDA' : (fv('allergies')|| (segv('allstat')==='Allergies'?'HAS ALLERGIES — see chart':''));
+    T+=line('** ALLERGIES', all);
+    T+=line('Precautions', fv('precautions'));
+    T+='\nSITUATION\n---------\n';
+    T+=line('Time', fv('procDate'));
+    T+=line('Procedure', fv('procedure'));
+    T+=line('Indication', fv('indication'));
+    T+=line('Operator', fv('operator'));
+    T+='\nBACKGROUND\n----------\n';
+    T+=line('History', fv('history'));
+    var hx=[]; if(segv('dm')==='Yes')hx.push('DM'); if(segv('ckd')==='Yes')hx.push('CKD/dialysis'); if(segv('cabg')==='Yes')hx.push('prior CABG'); if(segv('antic')==='Yes')hx.push('anticoagulated');
+    T+=line('Flags', hx.join(', '));
+    T+=line('Home meds / held', fv('homemeds'));
+    T+='\nLABS\n----\n';
+    var labs=[];
+    if(P.hgb!=null)labs.push('Hgb '+P.hgb);
+    if(fv('hct'))labs.push('Hct '+fv('hct'));
+    if(fv('plt'))labs.push('Plt '+fv('plt'));
+    if(fv('inr'))labs.push('INR '+fv('inr'));
+    if(fv('ptt'))labs.push('aPTT '+fv('ptt'));
+    if(P.scr!=null)labs.push('Cr '+P.scr);
+    if(d.egfr!=null)labs.push('eGFR '+d.egfr.toFixed(0));
+    if(fv('potassium'))labs.push('K '+fv('potassium'));
+    if(fv('sodium'))labs.push('Na '+fv('sodium'));
+    if(fv('glucose'))labs.push('Glu '+fv('glucose'));
+    if(fv('troponin'))labs.push('Trop '+fv('troponin'));
+    if(fv('a1c'))labs.push('A1c '+fv('a1c'));
+    T+=(labs.length?labs.join('  |  '):'—')+'\n';
+    T+='\nPRE-PROCEDURE MEDS\n------------------\n';
+    T+=line('Aspirin', fv('asa')+(fv('asaTime')?' @ '+fv('asaTime'):''));
+    var p2=[fv('p2y12'),fv('p2y12Dose')].filter(Boolean).join(' ');
+    T+=line('P2Y12 inhibitor', p2+(p2&&fv('p2y12Time')?' @ '+fv('p2y12Time'):''));
+    var pmed=[]; if(fv('methylpred'))pmed.push('methylprednisolone '+fv('methylpred')); if(fv('diphenhydramine'))pmed.push('diphenhydramine '+fv('diphenhydramine')); if(fv('famotidine'))pmed.push('famotidine '+fv('famotidine'));
+    T+=line('Contrast prophylaxis', pmed.join('; '));
+    var oms=(HO.otherMeds||[]).filter(function(r){ return r.agent||r.dose; }).map(function(r){
+      return [r.agent,r.dose].filter(Boolean).join(' ')+(r.time?' @ '+r.time:''); });
+    T+=line('Other pre-meds', oms.join('; '));
+    T+=line('Planned access', segv('planaccess')+(fv('planNote')?' ('+fv('planNote')+')':''));
+    T+='\nINTRA-PROCEDURE\n---------------\n';
+    T+=line('Case type', segv('casetype'));
+    var acc=[]; if(vis('artBlock'))acc.push('Art: '+(segv('artsite')||'—'));
+    if(vis('venBlock'))acc.push('Ven: '+(segv('vensite')||'—'));
+    T+=crit('Access', acc.join(' · '));   /* red-line: always render */
+    var im=[];
+    if(fv('midazolam'))im.push('midazolam '+fv('midazolam'));
+    if(fv('fentanyl'))im.push('fentanyl '+fv('fentanyl'));
+    if(fv('eptifibatide'))im.push('eptifibatide '+fv('eptifibatide'));
+    if(fv('antiplt'))im.push(fv('antiplt'));
+    if(fv('antiemetic'))im.push(fv('antiemetic'));
+    if(fv('ivfIntra'))im.push('IVF '+fv('ivfIntra'));
+    if(fv('otherIntra'))im.push(fv('otherIntra'));
+    T+=crit('Heparin', fv('heparin'));               /* red-line */
+    T+=crit('ACT', fv('act'));                        /* red-line */
+    T+=line('Other meds given', im.join('; '));
+    T+=crit('Contrast', [segv('contrast'), fv('contrastVol')?fv('contrastVol')+' mL':''].filter(Boolean).join(' · '));  /* red-line */
+    T+=line('Findings', fv('findings'));
+    T+=line('Devices', fv('devices'));
+    T+=line('Complications', fv('complications'));
+    T+='\nSHEATH DISPOSITION\n------------------\n';
+    T+=crit('Sheath', segv('sheathstatus'));         /* red-line */
+    T+=line('Hemostasis / closure', segv('hemostasis'));
+    if(segv('hemostasis')==='TR band'){
+      T+=line('  Air in band', fv('bandAir')?fv('bandAir')+' mL':'');
+      T+=line('  Case', segv('tbandtype'));
+      T+=line('  Band applied at', fv('tbandApplied'));
+      T+=line('  Air removal can begin', fv('tbandRemove'));
+    } else if(segv('hemostasis')==='Perclose'||segv('hemostasis')==='Angio-Seal'||segv('hemostasis')==='Mynx'){
+      T+=line('  Deployed at', fv('deployTime'));
+      T+=line('  Lay flat until', fv('flatUntil'));
+    } else if(segv('hemostasis')==='Manual'){
+      T+=line('  Pressure held / pulled at', fv('manualPullTime'));
+      T+=line('  Lay flat until', fv('manualFlatUntil'));
+    }
+    T+='\nPOST-PROCEDURE\n--------------\n';
+    T+=line('Access site / pulse', [segv('pulse'),fv('siteCond')].filter(Boolean).join(' · '));
+    T+=line('Active drips', fv('drips'));
+    T+=line('IV fluids (ongoing)', fv('postFluids'));
+    T+=line('Follow-up labs / checks', fv('postlabs'));
+    T+=line('DAPT plan', fv('dapt'));
+    T+='\nDISPOSITION\n-----------\n';
+    T+=line('Destination', segv('dispo'));
+    T+=line('Outstanding', fv('outstanding'));
+    T+=line('Report to', fv('reportTo'));
+    T+=line('Reported by', fv('reportBy'));
+    T+='\nGenerated '+new Date().toLocaleString('en-US')+' · Cath Lab Tools v'+CM.VERSION+'\n';
+    T+='Decision-support summary — verify against chart & local protocol.';
+    return T;
+  }
+
+  CM.init({
+    title:'Peri-procedure handoff',
+    desc:'SBAR-style pre / intra / post sheet — enter the patient once; it is shared with every calculator.',
+    home:true,
+    copy: buildReport,
+    onClear: function(){ HO={}; saveHO();
+      document.querySelectorAll('.hf').forEach(function(el){ el.value=''; el.removeAttribute('data-auto'); });
+      document.querySelectorAll('.miss').forEach(function(m){ m.parentNode.removeChild(m); });
+      document.querySelectorAll('.card .seg').forEach(function(g){
+        g.querySelectorAll('button').forEach(function(b){ b.classList.remove('on'); });
+        CM.a11ySync(g); });
+      updateCaseType(); updateHemostasis(); updateProphylaxis(); syncShared(); buildOM(); }
   });
+  bindFields();
+  bindShared();
+  addNowButtons();
+  wireAutoHolds();
+  buildOM();
+  wireOM();
+  buildLib();
+  CM.a11ySegs(document);   /* radiogroup semantics + keyboard nav on handoff segs */
+  updateCaseType();
+  updateHemostasis();
+  updateProphylaxis();
+  autoHolds();             /* recompute auto-filled hold times left stale by an earlier edit */
+  syncShared();
+  CM.onChange(syncShared);
+  /* "record it under Intra-procedure" link opens the intra accordion before jumping */
+  (function(){ var gi=$('goIntra'); if(gi) gi.addEventListener('click',function(){
+    var d=$('ph-intra'); if(d) d.open=true; }); })();
+  /* print shows every phase even if collapsed on screen */
+  window.addEventListener('beforeprint',function(){ document.querySelectorAll('details.phaseacc,details.ppanel').forEach(function(d){ d.__wo=d.open; d.open=true; }); });
+  window.addEventListener('afterprint',function(){ document.querySelectorAll('details.phaseacc,details.ppanel').forEach(function(d){ d.open=!!d.__wo; }); });
+  /* prefill time if blank (procedures are always today) */
+  if(!fv('procDate')){ var n=new Date();
+    $('procDate').value=n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    HO.procDate=$('procDate').value; saveHO(); }
 })();
 </script>
 </body>

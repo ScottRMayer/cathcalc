@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/app.css">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
 <title>Contrast volume · Cath Lab Tools</title>
 </head>
 <body>
@@ -24,8 +26,8 @@
       <span class="chip neutral" id="cChip" style="display:none"></span>
     </div>
     <div class="dual" style="margin-top:14px">
-      <div class="box"><div class="lab">Weight ÷ creatinine</div><div class="big" style="font-size:1.35rem"><span id="cWt">—</span> <span class="u">mL</span></div></div>
-      <div class="box"><div class="lab"><span id="cMultLab">3</span> × eGFR</div><div class="big" style="font-size:1.35rem"><span id="cGfr">—</span> <span class="u">mL</span></div></div>
+      <div class="box"><div class="lab">Weight ÷ creatinine</div><div class="big md"><span id="cWt">—</span> <span class="u">mL</span></div></div>
+      <div class="box"><div class="lab"><span id="cMultLab">3</span> × eGFR</div><div class="big md"><span id="cGfr">—</span> <span class="u">mL</span></div></div>
     </div>
     <div class="flag" id="cDialFlag"></div>
     <div class="err" id="cErr"></div>
@@ -42,15 +44,19 @@
       <button class="trkbtn minus" type="button" id="cUsedReset">Reset</button>
     </div>
     <div class="trkbar"><i id="cUsedBar"></i></div>
-    <div class="trkinfo"><span id="cUsedVal">0</span> mL used · <span id="cPct">—</span> of max</div>
+    <div class="result" style="margin-top:10px">
+      <span><span class="answer num neutral" id="cUsedVal">0</span> <span class="unit">mL used</span></span>
+      <span class="qualifier" id="cPct">— of max</span>
+      <span class="chip crit" id="cOverChip" style="display:none">LIMIT EXCEEDED</span>
+    </div>
     <div class="note">2.5 × kg ÷ SCr (halved Cigarroa) vs eGFR rule; absolute cap 300 mL. Used total also feeds the Mehran score.</div>
   </div>
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js"></script>
+<script src="../assets/core.js?v=3.7.0"></script>
 <script>
-var $=CM.$, syncing=false;
+var $=CM.$, syncing=false, overLimit=false; /* overLimit: announce the limit crossing once, not every keystroke */
 function render(){
   var P=CM.patient(), d=CM.derived(), used=CM.contrastUsed();
   if(!syncing){ $('cUsed').value=used||''; }
@@ -69,12 +75,25 @@ function render(){
     cChip.style.display='';
     if(c.max===300){ cChip.className='chip warn'; cChip.textContent='300 mL cap'; }
     else{ cChip.className='chip neutral'; cChip.textContent=(c.wt<c.gfr?'weight-limited':'eGFR-limited'); } }
-  var bar=$('cUsedBar');
-  if(cMaxVal){ var pct=Math.min(100,used/cMaxVal*100);
-    bar.style.width=pct+'%'; bar.style.background=pct>=90?'var(--bad)':(pct>=70?'var(--warn)':'var(--good)');
-    $('cPct').textContent=Math.round(pct)+'%';
-    CM.announce('Contrast '+used+' of '+cMaxVal.toFixed(0)+' milliliters'); }
-  else{ bar.style.width=(used>0?100:0)+'%'; bar.style.background='var(--muted)'; $('cPct').textContent='—'; }
+  var bar=$('cUsedBar'), over=$('cOverChip'), pctEl=$('cPct'), usedEl=$('cUsedVal');
+  if(cMaxVal){ var pctRaw=used/cMaxVal*100, pct=Math.min(100,pctRaw); /* bar clamps at 100; text never does */
+    bar.style.width=pct+'%'; bar.style.background=pctRaw>=90?'var(--bad)':(pctRaw>=70?'var(--warn)':'var(--good)');
+    if(pctRaw>100){
+      pctEl.textContent=Math.round(pctRaw)+'% of max — EXCEEDED by '+CM.fmt(Math.round(used-cMaxVal))+' mL';
+      pctEl.style.color='var(--bad)';
+      usedEl.className='answer num bad';
+      over.style.display='';
+      if(!overLimit){ overLimit=true; CM.announce('Contrast limit exceeded'); }
+    }else{
+      overLimit=false;
+      pctEl.textContent=Math.round(pctRaw)+'% of max';
+      pctEl.style.color='';
+      usedEl.className='answer num '+(pctRaw>=90?'bad':(pctRaw>=70?'warn':'neutral'));
+      over.style.display='none';
+      CM.announce('Contrast '+used+' of '+cMaxVal.toFixed(0)+' milliliters');
+    } }
+  else{ overLimit=false; bar.style.width=(used>0?100:0)+'%'; bar.style.background='var(--muted)';
+    pctEl.textContent='— of max'; pctEl.style.color=''; usedEl.className='answer num neutral'; over.style.display='none'; }
 }
 CM.init({title:'Contrast volume', copy:function(){
   return 'Clara Maass CMC — Contrast: '+CM.contrastUsed()+' mL used / max '+$('cMax').textContent+' mL ('+new Date().toLocaleString('en-US')+')';

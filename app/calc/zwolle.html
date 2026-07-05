@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/app.css">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
 <title>Zwolle score · Cath Lab Tools</title>
 </head>
 <body>
@@ -27,8 +29,8 @@
     <div class="ckrow"><div class="q">Ischemia time &gt; 4 h<span class="hint">1 pt</span></div><div class="seg" data-field="zT4"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
     <div class="subsec">Result</div>
     <div class="hero">
-      <span><span class="num sm good" id="zScore">0</span> <span class="unit">/ 16</span></span>
-      <span class="chip good" id="zChip">Low risk</span>
+      <span><span class="num sm neutral" id="zScore">0</span> <span class="unit">/ 16</span></span>
+      <span class="chip pending" id="zChip">Incomplete</span>
     </div>
     <div class="flag" id="zNote"></div>
     <div class="note">Score ≤ 3 = low risk. Early discharge decisions remain per attending judgment and local protocol.</div>
@@ -37,30 +39,47 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js"></script>
+<script src="../assets/core.js?v=3.7.0"></script>
 <script>
-var $=CM.$, card=$('zCard'), ageTouched=false;
-function setSeg(field,v){ card.querySelectorAll('.seg[data-field="'+field+'"] button').forEach(function(b){
-  var on=b.getAttribute('data-v')===v; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false'); }); }
+var $=CM.$, card=$('zCard');
+var FIELDS=['zKil','zTimi','zAge','z3v','zAnt','zT4'];
+/* touched = user answered by hand (also stops age auto-fill).
+   Age auto-filled from the shared patient counts as answered. */
+var touched={};
+function setSeg(field,v){ var g=card.querySelector('.seg[data-field="'+field+'"]');
+  g.querySelectorAll('button').forEach(function(b){
+    b.classList.toggle('on',b.getAttribute('data-v')===v); });
+  CM.a11ySync(g); }
 function render(){
-  var P=CM.patient();
+  var P=CM.patient(), auto={};
   if(P.age!=null){ $('zAgeHint').textContent='Patient age: '+P.age+' · 2 pts';
-    if(!ageTouched)setSeg('zAge',P.age>=60?'Yes':'No'); }
+    if(!touched.zAge)setSeg('zAge',P.age>=60?'Yes':'No'); auto.zAge=true; }
   else { $('zAgeHint').textContent='2 pts'; }
   var r=CM.F.zwolle({
     killip:parseInt(CM.seg('zKil',card)||'1',10),
     timiFlow:parseInt(CM.seg('zTimi',card)||'3',10),
     age:CM.segYes('zAge',card)?60:0,
     threeVessel:CM.segYes('z3v',card), anteriorMI:CM.segYes('zAnt',card), ischemiaGt4h:CM.segYes('zT4',card)});
-  CM.setNum('zScore',r.score,r.cls);
-  var chip=$('zChip'); chip.className='chip '+r.cls; chip.textContent=r.category;
-  $('zNote').textContent=r.note; $('zNote').className='flag'+(r.low?'':' warn');
-  CM.announce('Zwolle '+r.score+' points, '+r.category);
+  var done=0; FIELDS.forEach(function(f){ if(touched[f]||auto[f])done++; });
+  var chip=$('zChip');
+  if(done===FIELDS.length){
+    CM.setNum('zScore',r.score,r.cls);
+    chip.className='chip '+r.cls; chip.textContent=r.category;
+    $('zNote').textContent=r.note; $('zNote').className='flag'+(r.low?'':' warn');
+    CM.announce('Zwolle '+r.score+' points, '+r.category);
+  } else {
+    /* provisional: neutral number, pending chip, no risk claim */
+    CM.setNum('zScore',r.score,'neutral');
+    chip.className='chip pending';
+    chip.textContent='Incomplete — '+done+' of '+FIELDS.length+' answered';
+    $('zNote').textContent=''; $('zNote').className='flag';
+    CM.announce('Zwolle incomplete, '+done+' of '+FIELDS.length+' answered');
+  }
 }
 CM.init({title:'Zwolle score', copy:function(){
   return 'Clara Maass CMC — Zwolle: '+$('zScore').textContent+'/16 ('+$('zChip').textContent+') · '+new Date().toLocaleString('en-US');
-}, onClear:function(){ CM.resetSegs(card); ageTouched=false; render(); }});
-CM.wireSegs(card,function(field){ if(field==='zAge')ageTouched=true; render(); });
+}, onClear:function(){ CM.resetSegs(card); touched={}; render(); }});
+CM.wireSegs(card,function(field){ if(field)touched[field]=true; render(); });
 CM.onChange(render); render();
 </script>
 </body>

@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.1.0';
+CM.VERSION = '3.7.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -181,34 +181,80 @@ F.qpqs = function(saO2, mvO2, pvO2, paO2){ return (saO2-mvO2)/(pvO2-paO2); };
 F.flammMV = function(svc,ivc){ return (3*svc+ivc)/4; };
 
 /* ---- Infusion drips ----
-   concPerMl: mcg/mL for mcg- and mg-based units, U/mL for U/min. */
+   concPerMl: mcg/mL for mcg- and mg-based units, U/mL for U-based units
+   (U/min, U/kg/h). Pure unit arithmetic only. */
 F.dripMlPerHr = function(dose, unit, kg, concPerMl){
   if(unit==='mcg/min') return dose*60/concPerMl;
   if(unit==='mcg/kg/min') return dose*kg*60/concPerMl;
   if(unit==='mg/h') return dose*1000/concPerMl;
+  if(unit==='mg/kg/h') return dose*kg*1000/concPerMl;
   if(unit==='U/min') return dose*60/concPerMl;
+  if(unit==='U/kg/h') return dose*kg/concPerMl;
   return NaN;
 };
 F.dripDoseFromRate = function(mlh, unit, kg, concPerMl){
   if(unit==='mcg/min') return mlh*concPerMl/60;
   if(unit==='mcg/kg/min') return mlh*concPerMl/(60*kg);
   if(unit==='mg/h') return mlh*concPerMl/1000;
+  if(unit==='mg/kg/h') return mlh*concPerMl/(1000*kg);
   if(unit==='U/min') return mlh*concPerMl/60;
+  if(unit==='U/kg/h') return mlh*concPerMl/kg;
   return NaN;
 };
 
 /* ============================ SHARED STATE ============================ */
 var BLANK = {pid:'',age:null,sex:'',race:1,dial:false,kg:null,cm:null,scr:null,hgb:null,_ts:null};
-function loadP(){ try{ var j=sessionStorage.getItem('cmPatient'); return j?JSON.parse(j):Object.assign({},BLANK); }catch(e){ return Object.assign({},BLANK); } }
+
+/* ---- case slots ----
+   Each (room, case) is its own persistent patient that stays live across
+   reloads, so pre / intra / post nurses on the same device keep working the
+   same case. Storage is slot-scoped localStorage; the key scheme
+   (cm:{slot}:{name}) is what a shared backend will later sync per case. */
+CM.ROOMS = ['Cath Lab 1','Cath Lab 2'];
+CM.CASES = 10;
+function slotKeyFrom(room,c){ return (room===CM.ROOMS[1]?'CL2':'CL1')+'-'+c; }
+function loadSlot(){ try{ var j=JSON.parse(localStorage.getItem('cmSlot')||'null');
+    if(j&&j.room&&j.case) return {room:j.room, case:+j.case}; }catch(e){}
+  return {room:CM.ROOMS[0], case:1}; }
+var SLOT = loadSlot();
+CM.slot = function(){ return {room:SLOT.room, case:SLOT.case, key:slotKeyFrom(SLOT.room,SLOT.case)}; };
+CM.slotLabel = function(){ return SLOT.room+' · Case '+SLOT.case; };
+CM.storeKey = function(name){ return 'cm:'+slotKeyFrom(SLOT.room,SLOT.case)+':'+name; };
+CM.setSlot = function(room,c){ SLOT={room:room, case:+c};
+  try{ localStorage.setItem('cmSlot',JSON.stringify(SLOT)); }catch(e){}
+  location.reload(); };
+/* which case slots on this device already hold data (for the picker) */
+CM.slotUsed = function(room,c){ try{ return !!localStorage.getItem('cm:'+slotKeyFrom(room,c)+':patient'); }catch(e){ return false; } };
+
+/* Patient data older than 12 h is treated as expired: the slot is purged so a
+   new shift can never dose off yesterday's patient. */
+var STALE_MS = 12*60*60*1000;
+function loadP(){
+  try{
+    var j=localStorage.getItem(CM.storeKey('patient'));
+    if(!j) return Object.assign({},BLANK);
+    var p=JSON.parse(j);
+    if(p && p._ts && (Date.now()-p._ts)>STALE_MS){
+      try{
+        localStorage.removeItem(CM.storeKey('patient'));
+        localStorage.removeItem(CM.storeKey('handoff'));
+        localStorage.removeItem(CM.storeKey('contrast'));
+      }catch(e2){}
+      return Object.assign({},BLANK);
+    }
+    return p;
+  }catch(e){ return Object.assign({},BLANK); }
+}
 var P = loadP();
-function saveP(){ P._ts=Date.now(); try{ sessionStorage.setItem('cmPatient',JSON.stringify(P)); }catch(e){} }
+function saveP(){ P._ts=Date.now(); try{ localStorage.setItem(CM.storeKey('patient'),JSON.stringify(P)); }catch(e){} }
 CM.patient = function(){ return P; };
 CM.setPatient = function(k,v){ P[k]=v; saveP(); notify(); };
-CM.clearPatient = function(){ P=Object.assign({},BLANK); saveP(); CM.setContrastUsed(0);
-  fillPanel(); notify(); };
+CM.clearPatient = function(){ P=Object.assign({},BLANK);
+  try{ localStorage.removeItem(CM.storeKey('patient')); localStorage.removeItem(CM.storeKey('handoff')); }catch(e){}
+  CM.setContrastUsed(0); fillPanel(); notify(); };
 
-CM.contrastUsed = function(){ var v=parseFloat(sessionStorage.getItem('cmContrast')); return isNaN(v)?0:Math.max(0,v); };
-CM.setContrastUsed = function(v){ try{ sessionStorage.setItem('cmContrast',String(Math.max(0,v||0))); }catch(e){} notify(); };
+CM.contrastUsed = function(){ var v=parseFloat(localStorage.getItem(CM.storeKey('contrast'))); return isNaN(v)?0:Math.max(0,v); };
+CM.setContrastUsed = function(v){ try{ localStorage.setItem(CM.storeKey('contrast'),String(Math.max(0,v||0))); }catch(e){} notify(); };
 
 /* Weight/height unit toggle (US lb·ft/in vs metric kg/cm). Labs (creatinine,
    hemoglobin) are always entered in US units — mg/dL and g/dL. Legacy 'cmUnits'
@@ -243,24 +289,67 @@ CM.setNum = function(id,val,cls){ var el=$(id); el.textContent=val;
   el.classList.remove('good','warn','bad','neutral'); if(cls)el.classList.add(cls); };
 CM.esc = function(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
 
+/* Accessibility for segmented controls: expose each .seg as a radiogroup with
+   roving-tabindex + arrow-key navigation. Keyboard selection synthesizes a
+   click, so whatever click handler the page already wired still runs (persist,
+   reveal, etc.). Idempotent per group. */
+var segLblSeq=0;
+/* Re-sync aria-checked + roving tabIndex from the .on class. Call after any
+   programmatic selection change so screen readers hear the right answer. */
+CM.a11ySync = function(group){
+  if(!group) return;
+  var btns=[].slice.call(group.querySelectorAll('button')), anyOn=false;
+  btns.forEach(function(b){ var on=b.classList.contains('on'); if(on)anyOn=true;
+    b.setAttribute('aria-checked',on?'true':'false');
+    b.tabIndex=on?0:-1; });
+  if(!anyOn&&btns.length) btns[0].tabIndex=0;
+};
+CM.a11ySegs = function(root){
+  (root||document).querySelectorAll('.seg').forEach(function(g){
+    if(g.__a11y) return; g.__a11y=true;
+    g.setAttribute('role','radiogroup');
+    /* auto-label unnamed groups from the nearest .ckrow question / field label */
+    if(!g.getAttribute('aria-label')&&!g.getAttribute('aria-labelledby')){
+      var row=g.closest('.ckrow'), lbl=row?row.querySelector('.q'):null;
+      if(!lbl){ var fld=g.closest('.field'); lbl=fld?fld.querySelector('label'):null; }
+      if(lbl){ if(!lbl.id) lbl.id='seglbl-'+(++segLblSeq); g.setAttribute('aria-labelledby',lbl.id); }
+    }
+    var btns=[].slice.call(g.querySelectorAll('button'));
+    if(!btns.length) return;
+    btns.forEach(function(b){ b.setAttribute('role','radio'); b.removeAttribute('aria-pressed'); });
+    g.addEventListener('click',function(){ setTimeout(function(){ CM.a11ySync(g); },0); });
+    g.addEventListener('keydown',function(e){
+      var i=btns.indexOf(document.activeElement); if(i<0) return;
+      var n=null;
+      if(e.key==='ArrowRight'||e.key==='ArrowDown') n=(i+1)%btns.length;
+      else if(e.key==='ArrowLeft'||e.key==='ArrowUp') n=(i-1+btns.length)%btns.length;
+      else if(e.key==='Home') n=0; else if(e.key==='End') n=btns.length-1;
+      else return;
+      e.preventDefault(); btns[n].focus(); btns[n].click();
+    });
+    CM.a11ySync(g);
+  });
+};
+
 /* Segmented yes/no group builder. name → callback(value). */
 CM.wireSegs = function(root, onAny){
   (root||document).querySelectorAll('.seg').forEach(function(g){
-    g.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x.classList.contains('on')?'true':'false');});
     g.addEventListener('click',function(e){
       var b=e.target.closest('button'); if(!b)return;
-      g.querySelectorAll('button').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-pressed','false');});
-      b.classList.add('on'); b.setAttribute('aria-pressed','true');
+      g.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); CM.a11ySync(g);
       if(onAny)onAny(g.getAttribute('data-field'),b.getAttribute('data-v'));
     });
   });
+  CM.a11ySegs(root);
 };
 CM.seg = function(field,root){ var b=(root||document).querySelector('.seg[data-field="'+field+'"] button.on');
   return b?b.getAttribute('data-v'):''; };
 CM.segYes = function(field,root){ return CM.seg(field,root)==='Yes'; };
 CM.resetSegs = function(root){ (root||document).querySelectorAll('.seg').forEach(function(g){
-  g.querySelectorAll('button').forEach(function(b){b.classList.remove('on');b.setAttribute('aria-pressed','false');});
-  var d=g.querySelector('[data-def]'); if(d){d.classList.add('on');d.setAttribute('aria-pressed','true');} }); };
+  g.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+  var d=g.querySelector('[data-def]'); if(d)d.classList.add('on');
+  CM.a11ySync(g); }); };
 
 CM.copyText = function(t){
   if(navigator.clipboard&&navigator.clipboard.writeText){ return navigator.clipboard.writeText(t); }
@@ -274,20 +363,24 @@ var ROOT = (function(){ var s=document.currentScript; if(!s)return './';
   return s.src.replace(/assets\/core\.js.*$/,''); })();
 CM.root = ROOT;
 
+/* Tool registry. Order = dock order (most-used intra-case tools first so they
+   land in the visible dock slots). phase groups the home tool library:
+   pre = work-up / planning, intra = live case, post = after the case. */
 var NAV = [
-  ['Home','index.html','home'],
-  ['Hemo','calc/hemodynamics.html','hemo'],
-  ['Drips','calc/drips.html','dose'],
-  ['Heparin','calc/heparin.html','dose'],
-  ['ACT','calc/act.html','dose'],
-  ['Contrast','calc/contrast.html','contrast'],
-  ['Drugs','calc/drugs.html','dose'],
-  ['Bleed','calc/bleed-risk.html','risk'],
-  ['Mehran','calc/mehran.html','contrast'],
-  ['DyeVert','calc/dyevert.html','contrast'],
-  ['TIMI','calc/timi.html','risk'],
-  ['Zwolle','calc/zwolle.html','risk']
+  {label:'Handoff',    href:'index.html',             cat:'home',     phase:'pre'},
+  {label:'Heparin',    href:'calc/heparin.html',      cat:'dose',     phase:'intra'},
+  {label:'ACT',        href:'calc/act.html',          cat:'dose',     phase:'intra'},
+  {label:'Contrast',   href:'calc/contrast.html',     cat:'contrast', phase:'intra'},
+  {label:'Infusions',  href:'calc/drips.html',        cat:'dose',     phase:'intra'},
+  {label:'Anticoag',   href:'calc/drugs.html',        cat:'dose',     phase:'intra'},
+  {label:'Hemo',       href:'calc/hemodynamics.html', cat:'hemo',     phase:'intra'},
+  {label:'TIMI',       href:'calc/timi.html',         cat:'risk',     phase:'pre'},
+  {label:'Bleed risk', href:'calc/bleed-risk.html',   cat:'risk',     phase:'pre'},
+  {label:'Mehran',     href:'calc/mehran.html',       cat:'contrast', phase:'post'},
+  {label:'DyeVert',    href:'calc/dyevert.html',      cat:'contrast', phase:'pre'},
+  {label:'Zwolle',     href:'calc/zwolle.html',       cat:'risk',     phase:'post'}
 ];
+CM.NAV = NAV;
 
 /* Realistic PQRST ECG motif: flat baseline → P wave → PR segment → Q dip →
    tall R spike → deep S → ST segment → rounded T wave → baseline. */
@@ -309,26 +402,24 @@ function panelHTML(){
   return ''
   +'<div class="grid">'
   +'<div class="field" style="grid-column:1/-1"><label id="lblUnitsBody">Weight &amp; height units <span class="hint">(labs always mg/dL, g/dL)</span></label>'
-  +'<div class="seg" role="group" aria-labelledby="lblUnitsBody" id="unitSegBody" data-field="unitsBody">'
+  +'<div class="seg" role="radiogroup" aria-labelledby="lblUnitsBody" id="unitSegBody" data-field="unitsBody">'
   +'<button type="button" data-v="us">US (lb, ft/in)</button><button type="button" data-v="si">Metric (kg, cm)</button></div></div>'
   +'<div class="field"><label for="pid">Patient ID / room <span class="hint">(optional)</span></label><input id="pid" type="text" autocomplete="off" placeholder="e.g. Rm 3 / initials"></div>'
   +'<div class="field"><label for="age">Age <span class="hint">(yrs)</span></label><input id="age" type="number" inputmode="numeric" step="1" min="18" max="120" autocomplete="off" placeholder="68"></div>'
   +'<div class="field"><label id="lblSex">Sex at birth</label>'
-  +'<div class="seg" role="group" aria-labelledby="lblSex" data-field="sex"><button type="button" data-v="M">Male</button><button type="button" data-v="F">Female</button></div></div>'
+  +'<div class="seg" role="radiogroup" aria-labelledby="lblSex" data-field="sex"><button type="button" data-v="M">Male</button><button type="button" data-v="F">Female</button></div></div>'
   +'<div class="field"><label for="race">Race <span class="hint">(MDRD eGFR)</span></label><select id="race">'
-  +'<option value="1">White / Other</option><option value="1">Asian</option>'
-  +'<option value="1">American Indian / Alaska Native</option>'
-  +'<option value="1.21">Black or African American</option>'
-  +'<option value="1">Hispanic or Latino</option><option value="1">Native Hawaiian / Pacific Isl.</option></select></div>'
-  +'<div class="field"><label for="wt">Weight <span class="hint" id="wLab">(lb)</span></label><input id="wt" type="number" inputmode="decimal" step="0.1" min="1" autocomplete="off" placeholder="weight"><div class="derived" id="wtDeriv"></div></div>'
+  +'<option value="1">All others</option>'
+  +'<option value="1.21">Black / African American</option></select></div>'
+  +'<div class="field"><label for="wt">Weight</label><div class="inwrap"><input id="wt" type="number" inputmode="decimal" step="0.1" min="1" autocomplete="off" placeholder="weight"><span class="suffix" id="wLab" aria-hidden="true">lb</span></div><div class="derived em" id="wtDeriv"></div></div>'
   +'<div class="field" id="wrapHeightUS"><label for="ft">Height</label><div class="row2"><input id="ft" type="number" inputmode="numeric" step="1" min="0" max="8" autocomplete="off" placeholder="ft" aria-label="Height feet"><input id="in" type="number" inputmode="numeric" step="1" min="0" max="11" autocomplete="off" placeholder="in" aria-label="Height inches"></div></div>'
   +'<div class="field" id="wrapHeightSI" style="display:none"><label for="cmH">Height <span class="hint">(cm)</span></label><input id="cmH" type="number" inputmode="decimal" step="0.1" min="30" max="250" autocomplete="off" placeholder="175"></div>'
   +'<div class="field"><label for="scr">Creatinine <span class="hint" id="scrLab">(mg/dL)</span></label><input id="scr" type="number" inputmode="decimal" step="0.01" min="0.1" autocomplete="off" placeholder="1.0"></div>'
   +'<div class="field"><label for="hgb">Hemoglobin <span class="hint" id="hgbLab">(g/dL)</span></label><input id="hgb" type="number" inputmode="decimal" step="0.1" min="1" max="25" autocomplete="off" placeholder="13.5"></div>'
   +'<div class="field"><label id="lblDial">On dialysis?</label>'
-  +'<div class="seg" role="group" aria-labelledby="lblDial" data-field="dial"><button type="button" data-v="No" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>'
+  +'<div class="seg" role="radiogroup" aria-labelledby="lblDial" data-field="dial"><button type="button" data-v="No" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>'
   +'</div><div class="flag" id="rangeFlag"></div>'
-  +'<div class="note">eGFR uses MDRD 4-variable with the legacy race coefficient — retained deliberately to match the ACC CathPCI bleed model. CrCl uses Cockcroft-Gault (actual body weight; consider ideal/adjusted weight in obesity). Values are shared across every calculator and clear when the app is closed or on New patient.</div>';
+  +'<div class="note">eGFR uses MDRD 4-variable with the legacy race coefficient — retained deliberately to match the ACC CathPCI bleed model. CrCl uses Cockcroft-Gault (actual body weight; consider ideal/adjusted weight in obesity). Values are shared across every calculator and persist with this Room/Case until you tap New patient (unused data expires after 12 hours).</div>';
 }
 
 function panelStatus(){
@@ -351,10 +442,11 @@ function fillPanel(){
   var siB=CM.unitsBody()==='si';
   $('unitSegBody').querySelectorAll('button').forEach(function(b){
     var on=b.getAttribute('data-v')===(siB?'si':'us');
-    b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');});
+    b.classList.toggle('on',on);});
+  CM.a11ySync($('unitSegBody'));
   $('wrapHeightUS').style.display=siB?'none':'';
   $('wrapHeightSI').style.display=siB?'':'none';
-  $('wLab').textContent=siB?'(kg)':'(lb)';
+  $('wLab').textContent=siB?'kg':'lb';
   $('pid').value=P.pid||'';
   $('age').value=P.age!=null?P.age:'';
   $('wt').value=P.kg!=null?(siB?P.kg.toFixed(1):(P.kg*2.20462).toFixed(1)):'';
@@ -367,13 +459,15 @@ function fillPanel(){
   for(var r=0;r<ropts.length;r++){ ropts[r].selected=(parseFloat(ropts[r].value)===P.race && (P.race!==1||r===0)); }
   if(P.race===1)$('race').selectedIndex=0;
   document.querySelectorAll('#ppanelBody .seg[data-field="sex"] button').forEach(function(b){
-    var on=b.getAttribute('data-v')===P.sex; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');});
+    var on=b.getAttribute('data-v')===P.sex; b.classList.toggle('on',on);});
+  CM.a11ySync(document.querySelector('#ppanelBody .seg[data-field="sex"]'));
   document.querySelectorAll('#ppanelBody .seg[data-field="dial"] button').forEach(function(b){
-    var on=b.getAttribute('data-v')===(P.dial?'Yes':'No'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');});
+    var on=b.getAttribute('data-v')===(P.dial?'Yes':'No'); b.classList.toggle('on',on);});
+  CM.a11ySync(document.querySelector('#ppanelBody .seg[data-field="dial"]'));
   rangeFlag();
 }
 
-function num(id){ var v=parseFloat($(id).value); return isNaN(v)?null:v; }
+var num = CM.num = function(id){ var v=parseFloat(document.getElementById(id).value); return isNaN(v)?null:v; };
 function readPanel(){
   var siB=CM.unitsBody()==='si';
   P.pid=$('pid').value.trim();
@@ -402,6 +496,18 @@ function renderSummary(){
     $('sGfr').textContent=d.egfr!=null?d.egfr.toFixed(0):'—';
     $('sCrcl').textContent=d.crcl!=null?d.crcl.toFixed(0):'—'; }
   if($('wtDeriv'))$('wtDeriv').textContent=P.kg!=null?('= '+P.kg.toFixed(1)+' kg'):'';
+  var sb=$('summaryBar');
+  if(sb){ var empty=(P.kg==null&&d.bmi==null&&d.egfr==null&&d.crcl==null);
+    sb.classList.toggle('empty',empty); }
+  /* age-of-data cue: from 2 h on, flag stale entries right on the sticky bar */
+  var ag=$('sAge');
+  if(ag){
+    var hasData=(P.kg!=null||P.age!=null||P.scr!=null||P.hgb!=null);
+    var hrs=(P._ts&&hasData)?((Date.now()-P._ts)/3600000):0;
+    if(hrs>=2){ ag.hidden=false;
+      ag.textContent='⚠ Patient data entered '+Math.floor(hrs)+'h ago — verify still current'; }
+    else { ag.hidden=true; ag.textContent=''; }
+  }
   var st=$('ppanelStatus'); if(st)st.textContent=panelStatus();
   var pm=$('printmeta'); if(pm)pm.textContent=(P.pid?('Patient: '+P.pid+'  ·  '):'')+'Generated '+new Date().toLocaleString('en-US');
 }
@@ -421,25 +527,45 @@ CM.init = function(opts){
     +'<span class="brandbtns">'
     +(opts.copy?'<button class="btn" id="copyBtn" type="button">Copy</button>':'')
     +'<button class="btn" id="clearBtn" type="button">New patient</button></span></header>';
+  /* case-slot bar: pick room + case so each patient's pages stay live */
+  var slot=CM.slot(), caseOpts='';
+  for(var ci=1;ci<=CM.CASES;ci++){ caseOpts+='<option value="'+ci+'"'+(ci===slot.case?' selected':'')+'>Case '+ci+(CM.slotUsed(slot.room,ci)?' •':'')+'</option>'; }
+  h+='<div class="casebar">'
+    +'<span class="cblab">Room</span>'
+    +'<div class="seg cbroom" role="radiogroup" aria-label="Procedure room" data-field="__room">'
+    + CM.ROOMS.map(function(r){ return '<button type="button" data-v="'+CM.esc(r)+'"'+(r===slot.room?' class="on"':'')+'>'+CM.esc(r)+'</button>'; }).join('')
+    +'</div>'
+    +'<span class="cblab">Case</span>'
+    +'<select class="cbcase" id="slotCase" aria-label="Case number">'+caseOpts+'</select>'
+    +'<span class="cbcur" aria-hidden="true">'+CM.esc(CM.slotLabel())+'</span>'
+    +'</div>';
   h+='<h1 class="apptitle">'+CM.esc(opts.title||'Cath Lab Tools')+'</h1>';
-  if(!isHome)h+='<p class="crumb"><a href="'+ROOT+'index.html">‹ All calculators</a></p>';
+  if(!isHome)h+='<p class="crumb"><a href="'+ROOT+'index.html">‹ Handoff</a></p>';
   if(opts.desc)h+='<p class="tagline">'+opts.desc+'</p>';
   h+='<div class="printmeta" id="printmeta"></div>';
   h+='<div class="summary" id="summaryBar" role="button" tabindex="0" aria-label="Derived values — tap to edit patient" title="Tap to edit patient">'
     +'<div class="s"><div class="lab">Wt kg</div><div class="val" id="sWt">—</div></div>'
     +'<div class="s"><div class="lab">BMI</div><div class="val" id="sBmi">—</div></div>'
     +'<div class="s"><div class="lab">eGFR·MDRD</div><div class="val" id="sGfr">—</div></div>'
-    +'<div class="s"><div class="lab">CrCl</div><div class="val" id="sCrcl">—</div></div></div>';
-  h+='<details class="ppanel"'+(isHome?' open':'')+'><summary>Patient <span class="st" id="ppanelStatus"></span></summary>'
+    +'<div class="s"><div class="lab">CrCl</div><div class="val" id="sCrcl">—</div></div>'
+    +'<div class="age" id="sAge" hidden></div></div>';
+  h+='<details class="ppanel"><summary>Patient <span class="st" id="ppanelStatus"></span></summary>'
     +'<div class="pbody" id="ppanelBody">'+panelHTML()+'</div></details>';
   top.innerHTML=h;
 
   var bottom=$('shell-bottom');
-  bottom.innerHTML='<p class="disc"><strong>Clara Maass Medical Center</strong> · Cardiac Catheterization Lab · 1 Clara Maass Drive, Belleville, NJ 07109 · (973) 450-2000<br>'
+  bottom.innerHTML='<p class="disc"><strong>Clara Maass Medical Center</strong> · Cardiac Catheterization Lab · 1 Clara Maass Drive, Belleville, NJ 07109 · <a href="tel:+19734502000">(973) 450-2000</a><br>'
     +'For internal clinical use. Decision-support estimates only — not a substitute for clinical judgment. Verify against local protocol.</p>'
     +'<p class="ver">Cath Lab Tools v'+CM.VERSION+' · formulas last reviewed '+CM.REVIEWED
     +' · <a href="'+ROOT+'tests.html">formula self-test</a></p>'
     +'<div class="sr-only" aria-live="polite" id="srlive"></div>';
+
+  /* wire case-slot bar → switching reloads with that case's saved data */
+  var cbroom=top.querySelector('.cbroom');
+  if(cbroom){ cbroom.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
+    CM.setSlot(b.getAttribute('data-v'), CM.slot().case); }); CM.a11ySegs(cbroom); }
+  var cbcase=$('slotCase');
+  if(cbcase) cbcase.addEventListener('change',function(){ CM.setSlot(CM.slot().room, this.value); });
 
   /* wire panel */
   fillPanel();
@@ -463,17 +589,24 @@ CM.init = function(opts){
   });
   if(opts.copy){ $('copyBtn').addEventListener('click',function(){ var b=this;
     CM.copyText(opts.copy()).then(function(){ var o=b.textContent; b.textContent='Copied';
+      CM.announce('Report copied to clipboard');
       setTimeout(function(){b.textContent=o;},1200); },
-      function(){ b.textContent='Copy failed'; setTimeout(function(){b.textContent='Copy';},1400); }); }); }
+      function(){ b.textContent='Copy failed'; CM.announce('Copy failed');
+      setTimeout(function(){b.textContent='Copy';},1400); }); }); }
 
   renderSummary();
+
+  /* error prompts are announced politely to screen readers */
+  document.querySelectorAll('.err').forEach(function(el){
+    if(!el.getAttribute('aria-live')) el.setAttribute('aria-live','polite');
+  });
 
   /* bottom quick-nav */
   var cur=location.pathname.split('/').pop()||'index.html';
   var nav='<nav class="qnav" aria-label="Calculator quick navigation">'+NAV.map(function(n){
-    var isCur=n[1].split('/').pop()===cur;
-    return '<a href="'+ROOT+n[1]+'"'+(isCur?' class="cur" aria-current="page"':'')
-      +'><i class="d-'+n[2]+'" aria-hidden="true"></i>'+n[0]+'</a>';
+    var isCur=n.href.split('/').pop()===cur;
+    return '<a href="'+ROOT+n.href+'"'+(isCur?' class="cur" aria-current="page"':'')
+      +'><i class="d-'+n.cat+'" aria-hidden="true"></i>'+n.label+'</a>';
   }).join('')+'</nav>';
   document.body.insertAdjacentHTML('beforeend',nav);
   var curLink=document.querySelector('.qnav a.cur');

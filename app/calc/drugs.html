@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/app.css">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.7.0">
 <title>Anticoagulant / antiplatelet dosing · Cath Lab Tools</title>
 </head>
 <body>
@@ -26,7 +28,7 @@
 
   <div id="shell-bottom"></div>
 </div>
-<script src="../assets/core.js"></script>
+<script src="../assets/core.js?v=3.7.0"></script>
 <script>
 var $=CM.$;
 function drugCard(name,dose,adj){ return '<div class="drug"><div class="name">'+name+'</div><div class="dose">'+dose+'</div>'+(adj?'<div class="adj">'+adj+'</div>':'')+'</div>'; }
@@ -48,6 +50,11 @@ function render(){
     (t.caution?'Severe renal impairment / dialysis — use with caution; many protocols avoid GP IIb/IIIa. ':'')+(t.reduced?'Infusion halved (CrCl≤60).':''));
   if(show('Cangrelor'))html+=drugCard('Cangrelor','Bolus '+(g.bolus_mcg/1000).toFixed(2)+' mg IV, then '+g.rate+' mcg/kg/min = '+g.inf.toFixed(0)+' mcg/min','No renal adjustment.');
   $('drugList').innerHTML=html;
+  /* screen-reader feedback: dosing basis + selected agent's dose line */
+  var ann='Dosing updated — weight '+kg.toFixed(1)+' kg, CrCl '+crcl.toFixed(0)+(dial?', on dialysis':'');
+  if(pick!=='all'){ var first=$('drugList').querySelector('.drug .dose');
+    if(first)ann=pick+': '+first.textContent; }
+  CM.announce(ann);
 }
 CM.init({title:'Anticoagulant / antiplatelet dosing', copy:function(){
   var L=['Clara Maass CMC — '+$('drugCrcl').textContent.replace(/\s+/g,' ')];
