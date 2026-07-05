@@ -33,7 +33,7 @@
   <div id="shell-bottom"></div>
 </div>
 <script src="assets/core.js?v=3.9.0"></script>
-<script src="assets/tests.js"></script>
+<script src="assets/tests.js?v=3.9.0"></script>
 <script>
 CM.init({title:'Formula self-test'});
 document.getElementById('tVer').textContent=CM.VERSION;
@@ -43,4 +43,9 @@ var sum=document.getElementById('tSummary');
 sum.className='chip lg '+(fails.length?'bad':'good');
 sum.textContent=fails.length? (fails.length+' of '+res.length+' FAILED') : ('All '+res.length+' tests pass');
 document.getElementById('tList').innerHTML=res.map(function(r){
-  return '<div class="trow"><span class="st '+(r.pass?'ok':'no
+  return '<div class="trow"><span class="st '+(r.pass?'ok':'no')+'">'+(r.pass?'PASS':'FAIL')+'</span>'
+    +'<span>'+r.name+(r.pass?'':' <span class="dt">— '+r.detail+'</span>')+'</span></div>';
+}).join('');
+</script>
+</body>
+</html>

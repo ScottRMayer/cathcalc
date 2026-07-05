@@ -56,4 +56,10 @@ function render(){
   CM.announce('Bleeding risk '+risk.toFixed(1)+' percent');
 }
 CM.init({title:'Bleeding risk (ACC CathPCI)', copy:function(){
-  return 'Clara Maass CMC — Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):'')+' ('+new Date().toLocaleSt
+  return 'Clara Maass CMC — Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):'')+' ('+new Date().toLocaleString('en-US')+')';
+}, onClear:function(){ CM.resetSegs(card); render(); }});
+CM.wireSegs(card,function(){ render(); });
+CM.onChange(render); render();
+</script>
+</body>
+</html>

@@ -13,39 +13,30 @@
 <title>Vasoactive drips · Cath Lab Tools</title>
 </head>
 <body>
-<style>
-/* page-local: bag-concentration "confirm your mix" state */
-#dAmt.confirmbag,#dVol.confirmbag{border-color:var(--warn)}
-.mixnote{font-size:.9rem;font-weight:600;color:var(--warn);margin:10px 0 4px;line-height:1.4}
-.confirmrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:.88rem;font-weight:700;color:var(--warn);margin:8px 0 10px}
-.confirmrow button{font:inherit;font-size:.78rem;font-weight:700;padding:4px 14px;border-radius:20px;border:1.5px solid var(--warn);background:transparent;color:var(--warn);cursor:pointer}
-</style>
 <div class="wrap">
   <div id="shell-top"></div>
 
   <div class="card">
-    <h2>Vasoactive &amp; PCI drip rates</h2>
+    <h2>Vasoactive drip rates</h2>
     <p class="desc" id="dWt">Two-way: dose ↔ pump rate. Weight comes from the shared patient.</p>
     <div class="grid">
       <div class="field" style="grid-column:1/-1"><label for="dDrug">Drug</label><select id="dDrug"></select></div>
-      <div class="field"><label for="dAmt">Amount in bag <span class="hint" id="dAmtU">(mg)</span></label><input id="dAmt" type="number" inputmode="decimal" step="0.1" min="0.1" aria-describedby="dConfirm"></div>
-      <div class="field"><label for="dVol">Bag volume <span class="hint">(mL)</span></label><input id="dVol" type="number" inputmode="numeric" step="10" min="10" aria-describedby="dConfirm"></div>
+      <div class="field"><label for="dAmt">Amount in bag <span class="hint" id="dAmtU">(mg)</span></label><input id="dAmt" type="number" inputmode="decimal" step="0.1" min="0.1"></div>
+      <div class="field"><label for="dVol">Bag volume <span class="hint">(mL)</span></label><input id="dVol" type="number" inputmode="numeric" step="10" min="10"></div>
       <div class="field"><label for="dDose">Dose <span class="hint" id="dDoseU"></span></label><input id="dDose" type="number" inputmode="decimal" step="any" min="0" placeholder="dose"></div>
       <div class="field"><label for="dRate">Pump rate <span class="hint">(mL/h)</span></label><input id="dRate" type="number" inputmode="decimal" step="0.1" min="0" placeholder="mL/h"></div>
     </div>
     <div class="derived" id="dConc" style="margin-top:8px"></div>
     <div class="subsec">Result</div>
-    <div class="mixnote"><strong>Bag concentrations are prefilled with common defaults — always set amount and volume to YOUR pharmacy's mix before use.</strong></div>
-    <div class="confirmrow" id="dConfirm">Confirm bag concentration matches your pharmacy's mix <button type="button" id="dConfirmBtn">Confirm</button></div>
-    <div class="result">
-      <span class="answer" id="dOut">—</span> <span class="qualifier" id="dOutU">mL/h</span>
+    <div class="hero">
+      <span><span class="num sm neutral" id="dOut">—</span> <span class="unit" id="dOutU">mL/h</span></span>
       <span class="chip neutral" id="dChip" style="display:none"></span>
     </div>
     <div class="flag" id="dRange"></div>
     <div class="err" id="dErr"></div>
     <div class="subsec">Quick chart at current concentration</div>
     <div id="dChart" style="overflow-x:auto"></div>
-    <div class="note">Typical ranges shown are adult starting/usual ranges for reference only; titrate per order and protocol. Verify all doses with pharmacy.</div>
+    <div class="note"><strong>Bag concentrations are prefilled with common defaults — always set them to YOUR pharmacy's mix before use.</strong> Typical ranges shown are adult starting/usual ranges for reference only; titrate per order and protocol. Verify all doses with pharmacy.</div>
   </div>
 
   <div id="shell-bottom"></div>
@@ -53,9 +44,7 @@
 <script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, F=CM.F;
-/* amt in mg except units:true drugs (vasopressin, heparin — amount in units).
-   conc derived as (amt×1000)/vol mcg/mL, or U/mL. All bag amounts/volumes are
-   common DEFAULTS — the confirm-your-mix state forces verification. */
+/* amt in mg except vasopressin (units). conc derived as (amt×1000)/vol mcg/mL, or U/mL. */
 var DRUGS=[
  {name:'Norepinephrine', amt:4,    vol:250, unit:'mcg/min',    lo:2,     hi:30,   step:[2,5,10,20,30]},
  {name:'Epinephrine',    amt:4,    vol:250, unit:'mcg/min',    lo:1,     hi:10,   step:[1,2,4,8,10]},
@@ -65,35 +54,14 @@ var DRUGS=[
  {name:'Nitroglycerin',  amt:50,   vol:250, unit:'mcg/min',    lo:5,     hi:200,  step:[5,20,50,100,200]},
  {name:'Nicardipine',    amt:25,   vol:250, unit:'mg/h',       lo:5,     hi:15,   step:[5,7.5,10,12.5,15]},
  {name:'Milrinone',      amt:20,   vol:100, unit:'mcg/kg/min', lo:0.125, hi:0.75, step:[0.125,0.25,0.375,0.5,0.75]},
- {name:'Vasopressin',    amt:20,   vol:100, unit:'U/min',      lo:0.01,  hi:0.04, step:[0.01,0.02,0.03,0.04], units:true},
- /* PCI anticoagulants / antiplatelets — default premix concentrations, verify locally */
- {name:'Eptifibatide',   amt:75,   vol:100, unit:'mcg/kg/min', lo:1,     hi:2,    step:[1,1.5,2],        note:'Halve infusion if CrCl<50 (default 75 mg/100 mL premix)'},
- {name:'Tirofiban',      amt:5,    vol:100, unit:'mcg/kg/min', lo:0.1,   hi:0.15, step:[0.05,0.075,0.1,0.15], note:'Halve infusion if CrCl≤60 (default 5 mg/100 mL premix)'},
- {name:'Cangrelor',      amt:50,   vol:250, unit:'mcg/kg/min', lo:1,     hi:4,    step:[1,2,3,4]},
- {name:'Bivalirudin',    amt:250,  vol:50,  unit:'mg/kg/h',    lo:0.25,  hi:1.75, step:[0.25,1,1.75],    note:'PCI 1.75; reduce if CrCl<30 (1.0) or dialysis (0.25)'},
- {name:'Heparin',        amt:25000,vol:250, unit:'U/kg/h',     lo:12,    hi:18,   step:[10,12,15,18],    note:'Titrate per ACT / protocol', units:true}
+ {name:'Vasopressin',    amt:20,   vol:100, unit:'U/min',      lo:0.01,  hi:0.04, step:[0.01,0.02,0.03,0.04], units:true}
 ];
 var last='dose'; /* which side the user edited last */
 function drug(){ return DRUGS[$('dDrug').selectedIndex]; }
 function conc(){ var a=parseFloat($('dAmt').value), v=parseFloat($('dVol').value);
   if(isNaN(a)||isNaN(v)||a<=0||v<=0)return null;
   return drug().units ? a/v : a*1000/v; }
-function needsKg(){ return /\/kg\//.test(drug().unit); }
-function concLabel(c,d){
-  if(d.units) return (c>=10?c.toFixed(0):c.toFixed(2))+' U/mL';
-  if(c>=1000) return ((c/1000)%1?(c/1000).toFixed(1):(c/1000).toFixed(0))+' mg/mL';
-  return (c>=100?c.toFixed(0):c.toFixed(1))+' mcg/mL';
-}
-
-/* "confirm your mix" state: armed on every drug change; cleared when the user
-   edits/focuses either bag field or taps Confirm. Results still compute. */
-var bagConfirmed=false;
-function armBagConfirm(){ bagConfirmed=false;
-  $('dAmt').classList.add('confirmbag'); $('dVol').classList.add('confirmbag');
-  $('dConfirm').hidden=false; }
-function confirmBag(){ if(bagConfirmed)return; bagConfirmed=true;
-  $('dAmt').classList.remove('confirmbag'); $('dVol').classList.remove('confirmbag');
-  $('dConfirm').hidden=true; }
+function needsKg(){ return drug().unit==='mcg/kg/min'; }
 
 function fillDrug(){
   var d=drug();
@@ -101,13 +69,59 @@ function fillDrug(){
   $('dAmtU').textContent=d.units?'(units)':'(mg)';
   $('dDoseU').textContent='('+d.unit+')';
   $('dDose').value=''; $('dRate').value=''; last='dose';
-  armBagConfirm();
   render();
 }
 function render(){
   var d=drug(), c=conc(), P=CM.patient(), kg=P.kg;
   $('dWt').innerHTML='Two-way: dose ↔ pump rate. '+(kg!=null?('Weight <strong>'+kg.toFixed(1)+' kg</strong>.'):'Weight comes from the shared patient.');
-  $('dConc').textContent = c!=null ? ('Concentration: '+concLabel(c,d)) : '';
+  $('dConc').textContent = c!=null ? ('Concentration: '+(d.units?c.toFixed(2)+' U/mL':(c>=100?c.toFixed(0):c.toFixed(1))+' mcg/mL')) : '';
   var err='';
   if(c==null)err='Enter bag amount and volume.';
-  else if(needsKg()&&kg==null)err='Enter
+  else if(needsKg()&&kg==null)err='Enter patient weight (shared panel above).';
+  var dose=parseFloat($('dDose').value), rate=parseFloat($('dRate').value);
+  var out=null, outU='', doseShown=null;
+  if(!err){
+    if(last==='dose'&&!isNaN(dose)&&dose>=0){
+      out=F.dripMlPerHr(dose,d.unit,kg,c); outU='mL/h'; doseShown=dose;
+      $('dRate').value=isFinite(out)?out.toFixed(1):'';
+    } else if(last==='rate'&&!isNaN(rate)&&rate>=0){
+      out=F.dripDoseFromRate(rate,d.unit,kg,c); outU=d.unit; doseShown=out;
+      $('dDose').value=isFinite(out)?(+out.toFixed(3)):'';
+    }
+  }
+  $('dErr').textContent=err;
+  var chip=$('dChip');
+  if(out!=null&&isFinite(out)){ $('dOut').textContent=(last==='dose'?out.toFixed(1):(+out.toFixed(3))); $('dOutU').textContent=outU;
+    if(doseShown!=null){ chip.style.display='';
+      if(doseShown<d.lo){ chip.className='chip warn'; chip.textContent='Below typical range'; }
+      else if(doseShown>d.hi){ chip.className='chip bad'; chip.textContent='ABOVE typical range — verify'; }
+      else { chip.className='chip good'; chip.textContent='Within typical range'; } } }
+  else { $('dOut').textContent='—'; $('dOutU').textContent='mL/h'; chip.style.display='none'; }
+  $('dRange').textContent='Typical: '+d.lo+'–'+d.hi+' '+d.unit+(needsKg()?' (weight-based)':'');
+  /* quick chart */
+  var html='';
+  if(c!=null&&(!needsKg()||kg!=null)){
+    html='<table style="border-collapse:collapse;font-size:.85rem;min-width:280px">'
+      +'<tr><th style="text-align:left;padding:4px 10px 4px 0;color:var(--muted)">'+d.unit+'</th>'
+      +d.step.map(function(s){return '<th style="padding:4px 8px;font-weight:700">'+s+'</th>';}).join('')+'</tr>'
+      +'<tr><td style="padding:4px 10px 4px 0;color:var(--muted)">mL/h</td>'
+      +d.step.map(function(s){var r=F.dripMlPerHr(s,d.unit,kg,c);return '<td style="padding:4px 8px;text-align:center;border-top:1px solid var(--line)">'+(isFinite(r)?r.toFixed(1):'—')+'</td>';}).join('')
+      +'</tr></table>';
+  }
+  $('dChart').innerHTML=html;
+}
+CM.init({title:'Vasoactive drips', copy:function(){
+  var d=drug();
+  return 'Clara Maass CMC — '+d.name+' '+$('dDose').value+' '+d.unit+' = '+$('dRate').value+' mL/h ('+$('dConc').textContent+') · '+new Date().toLocaleString('en-US');
+}, onClear:function(){ fillDrug(); }});
+$('dDrug').innerHTML=DRUGS.map(function(d){return '<option>'+d.name+'</option>';}).join('');
+$('dDrug').addEventListener('change',fillDrug);
+$('dAmt').addEventListener('input',render);
+$('dVol').addEventListener('input',render);
+$('dDose').addEventListener('input',function(){ last='dose'; render(); });
+$('dRate').addEventListener('input',function(){ last='rate'; render(); });
+CM.onChange(render);
+fillDrug();
+</script>
+</body>
+</html>

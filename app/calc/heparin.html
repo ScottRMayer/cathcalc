@@ -20,13 +20,11 @@
     <h2>Heparin dose</h2>
     <p class="desc">Weight-based bolus.</p>
     <div class="dual">
-      <div class="box"><div class="lab">Diagnostic · 50 U/kg</div><div class="big" style="font-size:2.05rem"><span id="hepDiag">—</span> <span class="u">U</span></div><div class="derived" id="hepDiagR"></div></div>
-      <div class="box"><div class="lab">Intervention · 70 U/kg</div><div class="big" style="font-size:2.05rem"><span id="hepInt">—</span> <span class="u">U</span></div><div class="derived" id="hepIntR"></div></div>
+      <div class="box"><div class="lab">Diagnostic · 50 U/kg</div><div class="big"><span id="hepDiag">—</span> <span class="u">U</span></div><div class="derived" id="hepDiagR"></div></div>
+      <div class="box"><div class="lab">Intervention · 70 U/kg</div><div class="big"><span id="hepInt">—</span> <span class="u">U</span></div><div class="derived" id="hepIntR"></div></div>
     </div>
-    <div class="derived em" id="hepWt"></div>
-    <div class="flag" id="hepCap"></div>
     <div class="err" id="hepErr"></div>
-    <div class="note">Rounded to nearest 100 U. Titrate to ACT per protocol. With GP IIb/IIIa inhibitors, protocols typically reduce the bolus to 50–60 U/kg.</div>
+    <div class="note">Rounded to nearest 100 U. Titrate to ACT per protocol.</div>
   </div>
 
   <div id="shell-bottom"></div>
@@ -36,10 +34,19 @@
 function render(){
   var P=CM.patient(), $=CM.$;
   if(P.kg==null){ $('hepDiag').textContent=$('hepInt').textContent='—';
-    $('hepDiagR').textContent=$('hepIntR').textContent='';
-    $('hepWt').textContent=''; $('hepCap').textContent=''; $('hepCap').className='flag';
-    $('hepErr').textContent='Enter weight.'; return; }
+    $('hepDiagR').textContent=$('hepIntR').textContent=''; $('hepErr').textContent='Enter weight.'; return; }
   $('hepErr').textContent='';
   var d=CM.F.heparinDose(P.kg,50), i=CM.F.heparinDose(P.kg,70);
   $('hepDiag').textContent=CM.fmt(Math.round(d));
-  $('hepInt').textCont
+  $('hepInt').textContent=CM.fmt(Math.round(i));
+  $('hepDiagR').textContent='≈ '+CM.fmt(CM.round100(d))+' U';
+  $('hepIntR').textContent='≈ '+CM.fmt(CM.round100(i))+' U';
+  CM.announce('Heparin PCI '+CM.fmt(Math.round(i))+' units');
+}
+CM.init({title:'Heparin dose', copy:function(){
+  var $=CM.$; return 'Clara Maass CMC — Heparin: dx '+$('hepDiag').textContent+' U / PCI '+$('hepInt').textContent+' U ('+new Date().toLocaleString('en-US')+')';
+}});
+CM.onChange(render); render();
+</script>
+</body>
+</html>

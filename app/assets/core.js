@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.9.0';
+CM.VERSION = '3.9.1';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -409,7 +409,7 @@ function panelHTML(){
   +'<div class="field"><label id="lblDial">On dialysis?</label>'
   +'<div class="seg" role="radiogroup" aria-labelledby="lblDial" data-field="dial"><button type="button" data-v="No" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>'
   +'</div><div class="flag" id="rangeFlag"></div>'
-  +'<div class="note">eGFR uses MDRD 4-variable with the legacy race coefficient — retained deliberately to match the ACC CathPCI bleed model. CrCl uses Cockcroft-Gault (actual body weight; consider ideal/adjusted weight in obesity). Values are shared across every calculator and persist with this Room/Case until you tap New patient (unused data expires after 12 hours).</div>';
+  +'<div class="note">eGFR uses MDRD 4-variable with the legacy race coefficient — retained deliberately to match the ACC CathPCI bleed model. CrCl uses Cockcroft-Gault (actual body weight; consider ideal/adjusted weight in obesity). Values are shared across every calculator until you tap Clear (unused data expires after 12 hours).</div>';
 }
 
 function panelStatus(){
@@ -513,7 +513,7 @@ CM.init = function(opts){
     +'<span class="dept">Cardiac Catheterization Lab<span class="loc"> · Belleville, NJ</span></span></span></a>'
     +'<span class="brandbtns">'
     +(opts.copy?'<button class="btn" id="copyBtn" type="button">Copy</button>':'')
-    +'<button class="btn" id="clearBtn" type="button">New patient</button></span></header>';
+    +'<button class="btn" id="clearBtn" type="button">Clear</button></span></header>';
   h+='<h1 class="apptitle">'+CM.esc(opts.title||'Cath Lab Tools')+'</h1>';
   if(!isHome)h+='<p class="crumb"><a href="'+ROOT+'index.html">‹ Home</a></p>';
   if(opts.desc)h+='<p class="tagline">'+opts.desc+'</p>';
@@ -545,15 +545,15 @@ CM.init = function(opts){
     else if(field==='sex'){ P.sex=v; saveP(); notify(); }
     else if(field==='dial'){ P.dial=(v==='Yes'); saveP(); notify(); }
   });
-  /* New patient = two-tap confirm so a stray touch can't wipe a case */
+  /* Clear = two-tap confirm so a stray touch can't wipe a case */
   var clearArm=null;
   $('clearBtn').addEventListener('click',function(){
     var b=this;
     if(clearArm){ clearTimeout(clearArm); clearArm=null;
-      b.textContent='New patient'; b.classList.remove('confirm');
+      b.textContent='Clear'; b.classList.remove('confirm');
       CM.clearPatient(); if(opts.onClear)opts.onClear(); return; }
     b.textContent='Tap again to clear'; b.classList.add('confirm');
-    clearArm=setTimeout(function(){ clearArm=null; b.textContent='New patient'; b.classList.remove('confirm'); },3500);
+    clearArm=setTimeout(function(){ clearArm=null; b.textContent='Clear'; b.classList.remove('confirm'); },3500);
   });
   if(opts.copy){ $('copyBtn').addEventListener('click',function(){ var b=this;
     CM.copyText(opts.copy()).then(function(){ var o=b.textContent; b.textContent='Copied';

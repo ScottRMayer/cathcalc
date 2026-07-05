@@ -10,10 +10,11 @@ Multi-page, offline-capable web app version of the cath lab calculators. The ori
 **Contrast & renal:** Contrast volume limit + tracker · Mehran CI-AKI score
 **Risk scores:** ACC CathPCI bleeding · TIMI UA/NSTEMI · TIMI STEMI · Zwolle (early discharge after primary PCI)
 
-The patient (age, sex, weight, height, creatinine, Hgb, dialysis) is entered once and shared by
-every calculator via session storage — it clears when the browser/app closes or on **New patient**.
-The contrast tracker total is shared between the Contrast page and the Mehran score.
-No patient data is ever stored persistently or sent anywhere.
+This is a single-patient app. The de-identified clinical values (age, sex, weight, height,
+creatinine, Hgb, dialysis) are entered once and shared by every calculator, stored locally on the
+device and cleared on **Clear** (or automatically after 12 hours). The contrast tracker total is
+shared between the Contrast page and the Mehran score. No patient identifiers (names, initials,
+dates, MRN) are collected, and nothing is ever sent anywhere.
 
 ## How to run
 

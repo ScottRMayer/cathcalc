@@ -22,11 +22,10 @@
     tool. No patient names, initials, dates or free-text notes are collected or stored.
   </div>
 
-  <!-- ============================ TOOL LIBRARY ============================ -->
-  <details class="card" id="toolLib" open>
-    <summary style="cursor:pointer;font-weight:800;font-size:1.02rem;color:var(--brand-blue)">All tools <span class="hint">(every calculator, grouped by phase)</span></summary>
+  <div class="card">
+    <h2>Calculators</h2>
     <div id="libBody"></div>
-  </details>
+  </div>
 
   <div id="shell-bottom"></div>
 </div>
@@ -35,25 +34,18 @@
 (function(){
   var $=CM.$;
 
-  /* tool library: every calculator grouped by phase (the dock truncates on phones) */
+  /* simple flat list of every calculator */
   function buildLib(){
     var host=$('libBody'); if(!host) return;
-    var groups=[{k:'pre',t:'Pre-procedure'},{k:'intra',t:'Intra-procedure'},{k:'post',t:'Post / disposition'}], html='';
-    groups.forEach(function(gr){
-      var items=CM.NAV.filter(function(n){ return n.phase===gr.k && n.href!=='index.html'; });
-      if(!items.length) return;
-      html+='<div class="libgroup">'+gr.t+'</div><div class="libgrid">';
-      items.forEach(function(n){
-        html+='<a class="libcard cat-'+n.cat+'" href="'+n.href+'"><span class="t">'+CM.esc(n.label)+'</span></a>';
-      });
-      html+='</div>';
-    });
-    host.innerHTML=html;
+    var items=CM.NAV.filter(function(n){ return n.href!=='index.html'; });
+    host.innerHTML='<div class="libgrid">'+items.map(function(n){
+      return '<a class="libcard cat-'+n.cat+'" href="'+n.href+'"><span class="t">'+CM.esc(n.label)+'</span></a>';
+    }).join('')+'</div>';
   }
 
   CM.init({
     title:'Cath Lab Tools',
-    desc:'De-identified peri-procedure calculators — enter the shared clinical values once and they flow into every tool.',
+    desc:'Enter the shared clinical values once — they flow into every calculator.',
     home:true
   });
   buildLib();

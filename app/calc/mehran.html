@@ -23,18 +23,18 @@
       <div class="field"><label id="lblHypo">Hypotension <span class="hint">(SBP&lt;80)</span></label><div class="seg" role="group" aria-labelledby="lblHypo" data-field="mHypo"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
       <div class="field"><label id="lblIabp">IABP</label><div class="seg" role="group" aria-labelledby="lblIabp" data-field="mIabp"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
       <div class="field"><label id="lblChf">CHF</label><div class="seg" role="group" aria-labelledby="lblChf" data-field="mChf"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
-      <div class="field"><label id="lblAnemia">Anemia</label><div class="seg" role="group" aria-labelledby="lblAnemia" data-field="mAnemia"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div><div class="derived" id="mAnemiaAuto"></div></div>
+      <div class="field"><label id="lblAnemia">Anemia</label><div class="seg" role="group" aria-labelledby="lblAnemia" data-field="mAnemia"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
       <div class="field"><label id="lblDm">Diabetes</label><div class="seg" role="group" aria-labelledby="lblDm" data-field="mDm"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
-      <div class="field"><label for="mContrast">Contrast used <span class="hint">(mL)</span></label><input id="mContrast" type="number" inputmode="numeric" step="1" min="0" placeholder="0"><div class="derived em">Shared tracker — editing here updates the contrast total on every page.</div></div>
+      <div class="field"><label for="mContrast">Contrast used <span class="hint">(mL, shared tracker)</span></label><input id="mContrast" type="number" inputmode="numeric" step="1" min="0" placeholder="0"></div>
     </div>
     <div class="subsec">Result</div>
-    <div class="result">
-      <span><span class="answer num" id="mScore">—</span> <span class="unit">points</span></span>
+    <div class="hero">
+      <span><span class="num sm" id="mScore">—</span> <span class="unit">points</span></span>
       <span class="chip neutral" id="mChip" style="display:none"></span>
-      <span class="qualifier">CI-AKI <b id="mCin">—</b> · dialysis <b id="mDialR">—</b></span>
+      <span class="side">CI-AKI <b id="mCin">—</b> · dialysis <b id="mDialR">—</b></span>
     </div>
     <div class="err" id="mErr"></div>
-    <div class="note">Renal: SCr&gt;1.5 = 4 pts; else eGFR 40–60 = 2, 20–40 = 4, &lt;20 = 6. Contrast: 1 pt / 100 mL. Age &gt;75 = 4 pts. Anemia = Hgb &lt;13 (M) / &lt;12 (F).</div>
+    <div class="note">Renal: SCr&gt;1.5 = 4 pts; else eGFR 40–60 = 2, 20–40 = 4, &lt;20 = 6. Contrast: 1 pt / 100 mL. Editing contrast here updates the shared tracker.</div>
     <div class="cite">Mehran R, et al. J Am Coll Cardiol 2004;44:1393-9.</div>
   </div>
 
@@ -43,23 +43,28 @@
 <script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, card=document.querySelector('.card'), editing=false;
-var anemiaTouched=false; /* manual override: stop auto-deriving anemia once the user taps the seg */
-function anemic(P){ if(P.hgb==null||!P.sex)return null; return P.sex==='F'?P.hgb<12:P.hgb<13; }
-function setSeg(field,v){ var g=card.querySelector('.seg[data-field="'+field+'"]');
-  g.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on',b.getAttribute('data-v')===v); });
-  CM.a11ySync(g); }
 function render(){
   var P=CM.patient(), d=CM.derived(), used=CM.contrastUsed(), mChip=$('mChip');
   if(!editing){ $('mContrast').value=used||''; }
-  /* anemia auto-derives from shared Hgb unless manually overridden */
-  var an=anemic(P), autoEl=$('mAnemiaAuto');
-  if(!anemiaTouched&&an!=null){ setSeg('mAnemia',an?'Yes':'No');
-    autoEl.textContent='(auto from Hgb '+P.hgb+' g/dL)'; }
-  else if(anemiaTouched){ autoEl.textContent='(manual)'; }
-  else{ autoEl.textContent=''; }
-  var miss=[];
-  if(P.age==null)miss.push('age');
-  if(P.scr==null&&d.egfr==null&&!P.dial)miss.push('creatinine');
-  if(miss.length){
+  if(P.scr==null&&d.egfr==null&&!P.dial){
     CM.setNum('mScore','—','neutral'); mChip.style.display='none';
-    $('mCin').textContent=$('mDialR').textContent='—'; $('mErr').textContent='Enter '+miss.join(' and ')+'.'; ret
+    $('mCin').textContent=$('mDialR').textContent='—'; $('mErr').textContent='Enter creatinine.'; return; }
+  $('mErr').textContent='';
+  var mr=CM.F.mehran({hypotension:CM.segYes('mHypo',card), iabp:CM.segYes('mIabp',card), chf:CM.segYes('mChf',card),
+    age:(P.age==null?0:P.age), anemia:CM.segYes('mAnemia',card), diabetes:CM.segYes('mDm',card),
+    contrastML:used, scr:P.scr, egfr:d.egfr, dialysis:P.dial});
+  CM.setNum('mScore',mr.score,mr.cls);
+  mChip.style.display=''; mChip.className='chip '+mr.cls; mChip.textContent=mr.category;
+  $('mCin').textContent=mr.cinRisk; $('mDialR').textContent=mr.dialysisRisk;
+  CM.announce('Mehran '+mr.category);
+}
+CM.init({title:'Mehran CI-AKI score', copy:function(){
+  return 'Clara Maass CMC — Mehran: '+$('mScore').textContent+' pts '+($('mChip').textContent?('('+$('mChip').textContent+')'):'')+' — CI-AKI '+$('mCin').textContent+', dialysis '+$('mDialR').textContent+' ('+new Date().toLocaleString('en-US')+')';
+}, onClear:function(){ CM.resetSegs(card); render(); }});
+CM.wireSegs(card,function(){ render(); });
+$('mContrast').addEventListener('input',function(){ editing=true;
+  var v=parseFloat(this.value); CM.setContrastUsed(isNaN(v)?0:v); editing=false; });
+CM.onChange(render); render();
+</script>
+</body>
+</html>

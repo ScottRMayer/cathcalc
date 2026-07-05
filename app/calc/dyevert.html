@@ -30,16 +30,16 @@
     </div>
 
     <div class="subsec">Determination</div>
-    <div class="result">
-      <span class="answer num neutral" id="dRec" style="font-size:2rem;line-height:1.1">Enter patient data</span>
+    <div class="hero">
       <span class="chip neutral" id="dChip">—</span>
+      <span class="side" id="dRec">Enter patient data</span>
     </div>
     <div class="err" id="dErr"></div>
 
     <div class="dual" style="margin-top:14px">
-      <div class="box"><div class="lab">eGFR (MDRD)</div><div class="big md"><span id="dEgfr">—</span></div></div>
-      <div class="box"><div class="lab">Mehran (partial)</div><div class="big md"><span id="dMehran">—</span> <span class="u" id="dMehranCat"></span></div><div class="derived">Assumes no hypotension/IABP — set those on the Mehran page for the full score.</div></div>
-      <div class="box"><div class="lab">Contrast/eGFR ratio</div><div class="big md"><span id="dRatio">—</span></div></div>
+      <div class="box"><div class="lab">eGFR (MDRD)</div><div class="big" style="font-size:1.35rem"><span id="dEgfr">—</span></div></div>
+      <div class="box"><div class="lab">Mehran</div><div class="big" style="font-size:1.35rem"><span id="dMehran">—</span> <span class="u" id="dMehranCat"></span></div></div>
+      <div class="box"><div class="lab">Contrast/eGFR ratio</div><div class="big" style="font-size:1.35rem"><span id="dRatio">—</span></div></div>
     </div>
 
     <div id="dTriggers" style="margin-top:14px"></div>
@@ -57,12 +57,11 @@ function anemic(P){ if(P.hgb==null||!P.sex)return false; return P.sex==='F'?P.hg
 function render(){
   var P=CM.patient(), d=CM.derived(), used=CM.contrastUsed();
   var eg=d.egfr;
-  // Mehran (same engine as the Mehran page; contrast from shared tracker).
-  // Partial: hypotension/IABP are not asked here. Requires age — never scores a missing age as 0.
+  // Mehran (same engine as the Mehran page; contrast from shared tracker)
   var mr=null;
-  if(P.age!=null&&(P.scr!=null||eg!=null||P.dial)){
+  if(P.scr!=null||eg!=null||P.dial){
     mr=CM.F.mehran({hypotension:false, iabp:false, chf:CM.segYes('dAcuity',card),
-      age:P.age, anemia:anemic(P), diabetes:CM.segYes('dDm',card),
+      age:(P.age==null?0:P.age), anemia:anemic(P), diabetes:CM.segYes('dDm',card),
       contrastML:used, scr:P.scr, egfr:eg, dialysis:P.dial});
   }
   // ratio from planned contrast
@@ -78,12 +77,11 @@ function render(){
   if(P.dial){
     setResult({tier:'A',category:'Mandatory',recommendation:'Deploy DyeVert',cls:'bad',
       triggersA:['On dialysis / ESRD — minimize contrast per protocol'],triggersB:[]});
-    $('dErr').textContent=(P.age==null?'Enter age to compute the Mehran score.':''); return;
+    $('dErr').textContent=''; return;
   }
   if(eg==null){
     $('dChip').className='chip neutral'; $('dChip').textContent='—';
-    var rec=$('dRec'); rec.className='answer num neutral'; rec.textContent='Enter patient data';
-    $('dTriggers').innerHTML='';
+    $('dRec').textContent='Enter age, sex and creatinine'; $('dTriggers').innerHTML='';
     $('dErr').textContent='eGFR needed — enter age, sex and creatinine in the patient panel.'; return;
   }
   $('dErr').textContent='';
@@ -95,9 +93,9 @@ function render(){
   setResult(r);
 }
 function setResult(r){
-  var chip=$('dChip'), rec=$('dRec');
+  var chip=$('dChip');
   chip.className='chip '+r.cls; chip.textContent=r.category;
-  rec.className='answer num '+r.cls; rec.textContent=r.recommendation;
+  $('dRec').textContent=r.recommendation;
   var h='';
   if(r.triggersA.length){ h+='<div class="lab" style="margin-bottom:4px">Tier A — mandatory triggers</div><ul style="margin:0 0 10px 18px;padding:0">'+r.triggersA.map(function(x){return '<li>'+CM.esc(x)+'</li>';}).join('')+'</ul>'; }
   if(r.triggersB.length){ h+='<div class="lab" style="margin-bottom:4px">Tier B — recommended triggers</div><ul style="margin:0 0 0 18px;padding:0">'+r.triggersB.map(function(x){return '<li>'+CM.esc(x)+'</li>';}).join('')+'</ul>'; }
@@ -106,4 +104,14 @@ function setResult(r){
   CM.announce('DyeVert '+r.category);
 }
 CM.init({title:'DyeVert determination', copy:function(){
-  var trg=$('dTriggers').textContent
+  var trg=$('dTriggers').textContent.replace(/\s+/g,' ').trim();
+  return 'Clara Maass CMC — DyeVert: '+$('dChip').textContent+' — '+$('dRec').textContent
+    +' (eGFR '+$('dEgfr').textContent+', Mehran '+$('dMehran').textContent
+    +', ratio '+$('dRatio').textContent+') '+trg+' ('+new Date().toLocaleString('en-US')+')';
+}, onClear:function(){ CM.resetSegs(card); $('dPlanned').value=''; render(); }});
+CM.wireSegs(card,function(){ render(); });
+$('dPlanned').addEventListener('input',render);
+CM.onChange(render); render();
+</script>
+</body>
+</html>

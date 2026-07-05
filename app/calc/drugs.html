@@ -50,10 +50,16 @@ function render(){
     (t.caution?'Severe renal impairment / dialysis — use with caution; many protocols avoid GP IIb/IIIa. ':'')+(t.reduced?'Infusion halved (CrCl≤60).':''));
   if(show('Cangrelor'))html+=drugCard('Cangrelor','Bolus '+(g.bolus_mcg/1000).toFixed(2)+' mg IV, then '+g.rate+' mcg/kg/min = '+g.inf.toFixed(0)+' mcg/min','No renal adjustment.');
   $('drugList').innerHTML=html;
-  /* screen-reader feedback: dosing basis + selected agent's dose line */
-  var ann='Dosing updated — weight '+kg.toFixed(1)+' kg, CrCl '+crcl.toFixed(0)+(dial?', on dialysis':'');
-  if(pick!=='all'){ var first=$('drugList').querySelector('.drug .dose');
-    if(first)ann=pick+': '+first.textContent; }
-  CM.announce(ann);
 }
-CM.init({title:'Anticoagulant / antiplatelet dosin
+CM.init({title:'Anticoagulant / antiplatelet dosing', copy:function(){
+  var L=['Clara Maass CMC — '+$('drugCrcl').textContent.replace(/\s+/g,' ')];
+  document.querySelectorAll('#drugList .drug').forEach(function(dv){
+    L.push('• '+dv.querySelector('.name').textContent+': '+dv.querySelector('.dose').textContent); });
+  L.push('Decision-support only; verify per protocol. '+new Date().toLocaleString('en-US'));
+  return L.join('\n');
+}});
+$('drugPick').addEventListener('change',render);
+CM.onChange(render); render();
+</script>
+</body>
+</html>
