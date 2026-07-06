@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.11.1';
+CM.VERSION = '3.11.2';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -376,13 +376,20 @@ CM.a11ySegs = function(root){
 };
 
 /* Segmented yes/no group builder. name → callback(value). */
+/* Calculator toggles that map 1:1 to a shared patient attribute — editing one
+   in any tool writes back so it persists and stays consistent across tools + Intake. */
+var SEG2SHARED = { mDm:'diabetes', dDm:'diabetes', mHypo:'hypotension', mIabp:'iabp',
+  mChf:'chf', stemi:'stemi', shock:'shock', pci:'priorPCI', dPrior:'priorCIAKI', dSingle:'singleKidney' };
 CM.wireSegs = function(root, onAny){
   (root||document).querySelectorAll('.seg').forEach(function(g){
     g.addEventListener('click',function(e){
       var b=e.target.closest('button'); if(!b)return;
       g.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
       b.classList.add('on'); CM.a11ySync(g);
-      if(onAny)onAny(g.getAttribute('data-field'),b.getAttribute('data-v'));
+      var f=g.getAttribute('data-field'), v=b.getAttribute('data-v');
+      if(SEG2SHARED[f]) CM.setPatient(SEG2SHARED[f], v==='Yes');
+      else if(f==='killip'||f==='zKil') CM.setPatient('killip', +v);
+      if(onAny)onAny(f,v);
     });
   });
   CM.a11ySegs(root);
