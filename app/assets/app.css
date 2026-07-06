@@ -146,9 +146,10 @@ a{color:var(--accent)}
 .casebtn.on.used::after{background:#fff}
 .casebtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .casemove{min-height:40px;padding:6px 12px;margin-left:auto;font-size:.85rem}
-.movebar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin:-4px 0 12px;padding:8px 12px;
-  background:var(--accent-soft);border:1px dashed var(--accent);border-radius:12px}
-@media print{ .casebar,.movebar{border:1px solid #999;box-shadow:none} .casemove{display:none} }
+.casebar.moving{border-left-color:var(--accent);background:var(--accent-soft)}
+.casebar.moving #caseLabel{color:var(--accent)}
+.casebar.moving .casebtn:not(.on){border-style:dashed;border-color:var(--accent);color:var(--accent)}
+@media print{ .casebar{border:1px solid #999;box-shadow:none} .casemove{display:none} }
 
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 16px;margin-bottom:16px;
   box-shadow:var(--shadow-md)}

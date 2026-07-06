@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.10.0';
+CM.VERSION = '3.10.1';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -527,12 +527,10 @@ function renderSummary(){
 /* Numbered case switcher + move/swap control (single-user, de-identified). */
 function caseBarHTML(){
   var A=ACTIVE, s='';
-  s+='<div class="casebar" role="group" aria-label="Case selector"><span class="cblab">Case</span><div class="caseseg" id="caseSeg">';
+  s+='<div class="casebar" id="caseBar" role="group" aria-label="Case selector">';
+  s+='<span class="cblab" id="caseLabel">Case</span><div class="caseseg" id="caseSeg">';
   for(var c=1;c<=CM.CASES;c++){ s+='<button type="button" class="casebtn'+(c===A?' on':'')+(CM.caseUsed(c)?' used':'')+'" data-c="'+c+'"'+(c===A?' aria-current="true"':'')+'>'+c+'</button>'; }
-  s+='</div><button type="button" class="btn casemove" id="caseMoveBtn" aria-expanded="false">Move…</button></div>';
-  s+='<div class="movebar" id="moveBar" hidden><span class="cblab">Move Case '+A+' →</span><div class="caseseg" id="moveSeg">';
-  for(var m=1;m<=CM.CASES;m++){ if(m===A)continue; s+='<button type="button" class="casebtn'+(CM.caseUsed(m)?' used':'')+'" data-mv="'+m+'">'+m+'</button>'; }
-  s+='</div></div>';
+  s+='</div><button type="button" class="btn casemove" id="caseMoveBtn">Move</button></div>';
   return s;
 }
 
@@ -566,13 +564,20 @@ CM.init = function(opts){
     +'<div class="pbody" id="ppanelBody">'+panelHTML()+'</div></details>';
   top.innerHTML=h;
 
-  /* case switcher + move/swap */
-  var caseSeg=$('caseSeg');
-  if(caseSeg) caseSeg.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) CM.setActiveCase(b.getAttribute('data-c')); });
-  var mvBtn=$('caseMoveBtn'), mvBar=$('moveBar');
-  if(mvBtn&&mvBar) mvBtn.addEventListener('click',function(){ var willOpen=mvBar.hidden; mvBar.hidden=!willOpen; this.setAttribute('aria-expanded',willOpen?'true':'false'); });
-  var moveSeg=$('moveSeg');
-  if(moveSeg) moveSeg.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) CM.moveCase(b.getAttribute('data-mv')); });
+  /* case switcher — tap a number to switch cases; "Move" flips the same row into
+     pick-a-destination mode, then a tap moves/swaps the active case to that slot */
+  var caseSeg=$('caseSeg'), caseBar=$('caseBar'), caseLabel=$('caseLabel'), mvBtn=$('caseMoveBtn'), moving=false;
+  function setMoveMode(on){ moving=on;
+    if(caseBar) caseBar.classList.toggle('moving',on);
+    if(caseLabel) caseLabel.textContent=on?('Move Case '+ACTIVE+' → tap a slot'):'Case';
+    if(mvBtn){ mvBtn.textContent=on?'Cancel':'Move'; mvBtn.classList.toggle('confirm',on); }
+  }
+  if(caseSeg) caseSeg.addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
+    var n=+b.getAttribute('data-c');
+    if(moving){ if(n===ACTIVE) setMoveMode(false); else CM.moveCase(n); }
+    else CM.setActiveCase(n);
+  });
+  if(mvBtn) mvBtn.addEventListener('click',function(){ setMoveMode(!moving); });
 
   var bottom=$('shell-bottom');
   bottom.innerHTML='<p class="disc"><strong>Clara Maass Medical Center</strong> · Cardiac Catheterization Lab · 1 Clara Maass Drive, Belleville, NJ 07109 · <a href="tel:+19734502000">(973) 450-2000</a><br>'
