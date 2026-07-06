@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.10.1';
+CM.VERSION = '3.11.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -203,7 +203,9 @@ F.dripDoseFromRate = function(mlh, unit, kg, concPerMl){
 };
 
 /* ============================ SHARED STATE ============================ */
-var BLANK = {age:null,sex:'',race:1,dial:false,kg:null,cm:null,scr:null,hgb:null,_ts:null};
+var BLANK = {age:null,sex:'',race:1,dial:false,kg:null,cm:null,scr:null,hgb:null,
+  diabetes:false,htn:false,anginaHx:false,hypotension:false,iabp:false,chf:false,
+  stemi:false,shock:false,priorPCI:false,singleKidney:false,priorCIAKI:false,killip:1,_ts:null};
 
 /* ---- case slots (single user, de-identified) ----
    The circulator can juggle several cases in a day. Each case (1..CASES) keeps
@@ -292,6 +294,32 @@ CM.derived = function(){
   var crcl = (P.age&&P.kg&&P.scr&&P.sex)? F.cockcroftGault(P.age,P.kg,female,P.scr) : null;
   return {bmi:bmi, egfr:egfr, crcl:crcl, female:female};
 };
+
+/* Anemia derived from shared Hgb + sex (Hgb <13 M / <12 F). */
+CM.anemia = function(){ if(P.hgb==null||!P.sex)return false; return P.sex==='F'?P.hgb<12:P.hgb<13; };
+
+/* Set a segmented control's active button by value — used to prefill toggles. */
+CM.setSegVal = function(field, v){
+  var g=document.querySelector('.seg[data-field="'+field+'"]'); if(!g)return;
+  g.querySelectorAll('button').forEach(function(bn){ bn.classList.toggle('on', bn.getAttribute('data-v')===String(v)); });
+  if(CM.a11ySync) CM.a11ySync(g);
+};
+
+/* Push shared comorbidities (entered once on the Intake page) into whatever
+   calculator toggles are present on the page, so every risk tool starts pre-filled.
+   Still fully overridable per tool — this only sets the starting position. */
+function prefillShared(){
+  var y=function(v){ return v?'Yes':'No'; }, k=(P.killip||1);
+  var map={ mDm:y(P.diabetes), dDm:y(P.diabetes),
+    mHypo:y(P.hypotension), sSbp:y(P.hypotension),
+    mIabp:y(P.iabp), mChf:y(P.chf), mAnemia:y(CM.anemia()),
+    stemi:y(P.stemi), shock:y(P.shock), pci:y(P.priorPCI), uCad:y(P.priorPCI),
+    dPrior:y(P.priorCIAKI), dSingle:y(P.singleKidney),
+    dAcuity:y(P.stemi||P.shock||P.chf), sDha:y(P.diabetes||P.htn||P.anginaHx),
+    sKil:y(k>=2), zKil:(k<=1?'1':(k===2?'2':'3')) };
+  Object.keys(map).forEach(function(f){ CM.setSegVal(f, map[f]); });
+}
+CM.prefillShared = prefillShared;
 
 var listeners=[];
 function notify(){ renderSummary(); listeners.forEach(function(fn){ try{fn();}catch(e){console.error(e);} }); }
@@ -384,6 +412,7 @@ CM.root = ROOT;
    pre = work-up / planning, intra = live case, post = after the case. */
 var NAV = [
   {label:'Home',       href:'index.html',             cat:'home',     phase:'pre'},
+  {label:'Intake',     href:'calc/intake.html',       cat:'home',     phase:'pre'},
   {label:'Heparin',    href:'calc/heparin.html',      cat:'dose',     phase:'intra'},
   {label:'ACT',        href:'calc/act.html',          cat:'dose',     phase:'intra'},
   {label:'Contrast',   href:'calc/contrast.html',     cat:'contrast', phase:'intra'},
@@ -614,6 +643,7 @@ CM.init = function(opts){
       setTimeout(function(){b.textContent='Copy';},1400); }); }); }
 
   renderSummary();
+  prefillShared();   /* seed this tool's toggles from the shared Intake data */
 
   /* error prompts are announced politely to screen readers */
   document.querySelectorAll('.err').forEach(function(el){

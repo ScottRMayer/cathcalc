@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#00548b">
+<meta name="theme-color" content="#02233a" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/app.css?v=3.11.0">
+<title>Patient intake · Cath Lab Tools</title>
+</head>
+<body>
+<div class="wrap">
+  <div id="shell-top"></div>
+
+  <div class="card">
+    <h2>History &amp; comorbidities</h2>
+    <p class="desc">Enter once here — these carry into every risk tool as the starting values. Age, sex, weight, height, creatinine, hemoglobin and dialysis are in the <strong>Patient</strong> panel above.</p>
+    <div class="grid" id="hxGrid">
+      <div class="field"><label id="lDm">Diabetes</label><div class="seg" role="group" aria-labelledby="lDm" data-field="diabetes"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lHtn">Hypertension</label><div class="seg" role="group" aria-labelledby="lHtn" data-field="htn"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lAng">Prior / active angina</label><div class="seg" role="group" aria-labelledby="lAng" data-field="anginaHx"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lPci">Prior PCI</label><div class="seg" role="group" aria-labelledby="lPci" data-field="priorPCI"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lSk">Single functioning kidney</label><div class="seg" role="group" aria-labelledby="lSk" data-field="singleKidney"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lCiaki">Prior contrast-induced AKI</label><div class="seg" role="group" aria-labelledby="lCiaki" data-field="priorCIAKI"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Current clinical status</h2>
+    <p class="desc">Acute presentation for this case — feeds the bleeding, Mehran, DyeVert, TIMI and Zwolle tools.</p>
+    <div class="grid" id="acGrid">
+      <div class="field"><label id="lStemi">STEMI</label><div class="seg" role="group" aria-labelledby="lStemi" data-field="stemi"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lShock">Cardiogenic shock</label><div class="seg" role="group" aria-labelledby="lShock" data-field="shock"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lHypo">Hypotension <span class="hint">(SBP &lt; 80)</span></label><div class="seg" role="group" aria-labelledby="lHypo" data-field="hypotension"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lChf">CHF / decompensated HF</label><div class="seg" role="group" aria-labelledby="lChf" data-field="chf"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lIabp">IABP / mechanical support</label><div class="seg" role="group" aria-labelledby="lIabp" data-field="iabp"><button type="button" data-v="No" class="on" data-def>No</button><button type="button" data-v="Yes">Yes</button></div></div>
+      <div class="field"><label id="lKil">Killip class</label><div class="seg" role="group" aria-labelledby="lKil" data-field="killip"><button type="button" data-v="1" class="on" data-def>I</button><button type="button" data-v="2">II</button><button type="button" data-v="3">III–IV</button></div></div>
+    </div>
+    <div class="note">Anemia is derived automatically from hemoglobin and sex. Remaining tool-specific items (e.g. ST-deviation, cardiac markers, post-PCI TIMI flow, planned contrast) are entered in their own calculator.</div>
+  </div>
+
+  <div id="shell-bottom"></div>
+</div>
+<script src="../assets/core.js?v=3.11.0"></script>
+<script>
+var $=CM.$, hx=null, ac=null;
+CM.init({title:'Patient intake',
+  desc:'Enter the patient once — comorbidities carry into every calculator.',
+  onClear:function(){ CM.resetSegs(hx); CM.resetSegs(ac); syncFromShared(); }});
+hx=$('hxGrid'); ac=$('acGrid');
+
+/* open the shared Patient panel so demographics/labs are right there */
+(function(){ var pp=document.querySelector('details.ppanel'); if(pp)pp.open=true; })();
+
+function syncFromShared(){
+  var P=CM.patient();
+  [['diabetes',P.diabetes],['htn',P.htn],['anginaHx',P.anginaHx],['priorPCI',P.priorPCI],
+   ['singleKidney',P.singleKidney],['priorCIAKI',P.priorCIAKI],['stemi',P.stemi],
+   ['shock',P.shock],['hypotension',P.hypotension],['chf',P.chf],['iabp',P.iabp]
+  ].forEach(function(p){ CM.setSegVal(p[0], p[1]?'Yes':'No'); });
+  var k=P.killip||1; CM.setSegVal('killip', k<=1?'1':(k===2?'2':'3'));
+}
+
+/* write toggles back to the shared patient state (scoped to the intake cards
+   only, so the shared panel's own sex/dialysis toggles are untouched) */
+function onToggle(field, v){
+  if(field==='killip'){ CM.setPatient('killip', +v); }
+  else { CM.setPatient(field, v==='Yes'); }
+}
+CM.wireSegs(hx, onToggle);
+CM.wireSegs(ac, onToggle);
+syncFromShared();
+CM.onChange(syncFromShared);
+</script>
+</body>
+</html>

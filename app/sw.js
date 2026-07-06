@@ -3,7 +3,7 @@
    JS/CSS); versioned static assets are cache-first and keyed on VERSION, so a
    VERSION bump swaps the whole asset set atomically.
    Bump VERSION (and keep CM.VERSION in core.js in step) whenever any file changes. */
-var VERSION = 'cathlab-v3.10.1';
+var VERSION = 'cathlab-v3.11.0';
 var FILES = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ var FILES = [
   './assets/icon-maskable-192.png',
   './assets/icon-maskable-512.png',
   './assets/tests.js',
+  './calc/intake.html',
   './calc/hemodynamics.html',
   './calc/drips.html',
   './calc/heparin.html',
