@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.9.2';
+CM.VERSION = '3.10.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -205,18 +205,43 @@ F.dripDoseFromRate = function(mlh, unit, kg, concPerMl){
 /* ============================ SHARED STATE ============================ */
 var BLANK = {age:null,sex:'',race:1,dial:false,kg:null,cm:null,scr:null,hgb:null,_ts:null};
 
-/* ---- local state ----
-   Single independent user on their own device. The shared clinical values
-   (de-identified: age, sex, weight, height, labs) persist in localStorage so
-   they carry from one calculator to the next — "enter once, shared everywhere".
-   No identifiers, no room/case scoping, nothing leaves the device. */
-CM.storeKey = function(name){ return 'cm:'+name; };
+/* ---- case slots (single user, de-identified) ----
+   The circulator can juggle several cases in a day. Each case (1..CASES) keeps
+   its own de-identified values (age, sex, weight, labs, contrast) in localStorage
+   under cm:case{N}:{name}. Cases are numbered only — no names/identifiers, and
+   nothing leaves the device. Active case is remembered in cm:activeCase. */
+CM.CASES = 8;
+function loadActive(){ try{ var n=parseInt(localStorage.getItem('cm:activeCase'),10);
+  return (n>=1&&n<=CM.CASES)?n:1; }catch(e){ return 1; } }
+var ACTIVE = loadActive();
+CM.activeCase = function(){ return ACTIVE; };
+CM.storeKey = function(name){ return 'cm:case'+ACTIVE+':'+name; };
+CM.caseUsed = function(n){ try{ return !!localStorage.getItem('cm:case'+n+':patient'); }catch(e){ return false; } };
+CM.setActiveCase = function(n){ n=+n; if(!(n>=1&&n<=CM.CASES)||n===ACTIVE) return;
+  ACTIVE=n; try{ localStorage.setItem('cm:activeCase',String(n)); }catch(e){} location.reload(); };
+/* Move the active case's data to another slot. If the target already holds a
+   case the two are swapped, so nothing is ever lost — handy when cases get
+   bumped for emergencies. Then follow the data to its new slot. */
+CM.moveCase = function(to){ to=+to; if(!(to>=1&&to<=CM.CASES)||to===ACTIVE) return;
+  try{ ['patient','contrast'].forEach(function(name){
+    var ka='cm:case'+ACTIVE+':'+name, kb='cm:case'+to+':'+name;
+    var va=localStorage.getItem(ka), vb=localStorage.getItem(kb);
+    if(vb!=null) localStorage.setItem(ka,vb); else localStorage.removeItem(ka);
+    if(va!=null) localStorage.setItem(kb,va); else localStorage.removeItem(kb);
+  }); }catch(e){}
+  CM.setActiveCase(to); };
 
-/* One-time cleanup: purge legacy slot-scoped keys (and any old handoff free
-   text) left by earlier versions, so no stale data lingers after an upgrade. */
-(function(){ try{ for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i);
-  if(k && (/^cm:(CL1|CL2)-/.test(k) || k==='cmSlot' || /:handoff$/.test(k))) localStorage.removeItem(k);
-} }catch(e){} })();
+/* One-time cleanup + migration: purge legacy slot/handoff keys, and move any
+   pre-case flat data (cm:patient / cm:contrast) into Case 1. */
+(function(){ try{
+  var fp=localStorage.getItem('cm:patient'), fc=localStorage.getItem('cm:contrast');
+  if(fp!=null && localStorage.getItem('cm:case1:patient')==null) localStorage.setItem('cm:case1:patient',fp);
+  if(fc!=null && localStorage.getItem('cm:case1:contrast')==null) localStorage.setItem('cm:case1:contrast',fc);
+  for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i);
+    if(k && (/^cm:(CL1|CL2)-/.test(k) || k==='cmSlot' || /:handoff$/.test(k)
+      || k==='cm:patient' || k==='cm:contrast')) localStorage.removeItem(k);
+  }
+}catch(e){} })();
 
 /* Entered values older than 12 h are treated as expired and cleared, so a stale
    weight/creatinine can never silently drive a later calculation. */
@@ -499,6 +524,18 @@ function renderSummary(){
   var pm=$('printmeta'); if(pm)pm.textContent='Generated '+new Date().toLocaleString('en-US');
 }
 
+/* Numbered case switcher + move/swap control (single-user, de-identified). */
+function caseBarHTML(){
+  var A=ACTIVE, s='';
+  s+='<div class="casebar" role="group" aria-label="Case selector"><span class="cblab">Case</span><div class="caseseg" id="caseSeg">';
+  for(var c=1;c<=CM.CASES;c++){ s+='<button type="button" class="casebtn'+(c===A?' on':'')+(CM.caseUsed(c)?' used':'')+'" data-c="'+c+'"'+(c===A?' aria-current="true"':'')+'>'+c+'</button>'; }
+  s+='</div><button type="button" class="btn casemove" id="caseMoveBtn" aria-expanded="false">Move…</button></div>';
+  s+='<div class="movebar" id="moveBar" hidden><span class="cblab">Move Case '+A+' →</span><div class="caseseg" id="moveSeg">';
+  for(var m=1;m<=CM.CASES;m++){ if(m===A)continue; s+='<button type="button" class="casebtn'+(CM.caseUsed(m)?' used':'')+'" data-mv="'+m+'">'+m+'</button>'; }
+  s+='</div></div>';
+  return s;
+}
+
 /* Build the page shell. opts: {title, desc, home, copy:fn->string, onClear:fn} */
 CM.init = function(opts){
   opts=opts||{};
@@ -514,6 +551,7 @@ CM.init = function(opts){
     +'<span class="brandbtns">'
     +(opts.copy?'<button class="btn" id="copyBtn" type="button">Copy</button>':'')
     +'<button class="btn" id="clearBtn" type="button">Clear</button></span></header>';
+  h+=caseBarHTML();
   h+='<h1 class="apptitle">'+CM.esc(opts.title||'Cath Lab Tools')+'</h1>';
   if(!isHome)h+='<p class="crumb"><a href="'+ROOT+'index.html">‹ Home</a></p>';
   if(opts.desc)h+='<p class="tagline">'+opts.desc+'</p>';
@@ -527,6 +565,14 @@ CM.init = function(opts){
   h+='<details class="ppanel"><summary>Patient <span class="st" id="ppanelStatus"></span></summary>'
     +'<div class="pbody" id="ppanelBody">'+panelHTML()+'</div></details>';
   top.innerHTML=h;
+
+  /* case switcher + move/swap */
+  var caseSeg=$('caseSeg');
+  if(caseSeg) caseSeg.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) CM.setActiveCase(b.getAttribute('data-c')); });
+  var mvBtn=$('caseMoveBtn'), mvBar=$('moveBar');
+  if(mvBtn&&mvBar) mvBtn.addEventListener('click',function(){ var willOpen=mvBar.hidden; mvBar.hidden=!willOpen; this.setAttribute('aria-expanded',willOpen?'true':'false'); });
+  var moveSeg=$('moveSeg');
+  if(moveSeg) moveSeg.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) CM.moveCase(b.getAttribute('data-mv')); });
 
   var bottom=$('shell-bottom');
   bottom.innerHTML='<p class="disc"><strong>Clara Maass Medical Center</strong> · Cardiac Catheterization Lab · 1 Clara Maass Drive, Belleville, NJ 07109 · <a href="tel:+19734502000">(973) 450-2000</a><br>'
