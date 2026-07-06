@@ -46,15 +46,15 @@
 var $=CM.$, F=CM.F;
 /* amt in mg except vasopressin (units). conc derived as (amt×1000)/vol mcg/mL, or U/mL. */
 var DRUGS=[
- {name:'Norepinephrine', amt:4,    vol:250, unit:'mcg/min',    lo:2,     hi:30,   step:[2,5,10,20,30]},
- {name:'Epinephrine',    amt:4,    vol:250, unit:'mcg/min',    lo:1,     hi:10,   step:[1,2,4,8,10]},
- {name:'Dopamine',       amt:400,  vol:250, unit:'mcg/kg/min', lo:2,     hi:20,   step:[2,5,10,15,20]},
- {name:'Dobutamine',     amt:250,  vol:250, unit:'mcg/kg/min', lo:2.5,   hi:20,   step:[2.5,5,10,15,20]},
- {name:'Phenylephrine',  amt:10,   vol:250, unit:'mcg/min',    lo:40,    hi:180,  step:[40,80,120,160,180]},
- {name:'Nitroglycerin',  amt:50,   vol:250, unit:'mcg/min',    lo:5,     hi:200,  step:[5,20,50,100,200]},
- {name:'Nicardipine',    amt:25,   vol:250, unit:'mg/h',       lo:5,     hi:15,   step:[5,7.5,10,12.5,15]},
- {name:'Milrinone',      amt:20,   vol:100, unit:'mcg/kg/min', lo:0.125, hi:0.75, step:[0.125,0.25,0.375,0.5,0.75]},
- {name:'Vasopressin',    amt:20,   vol:100, unit:'U/min',      lo:0.01,  hi:0.04, step:[0.01,0.02,0.03,0.04], units:true}
+ {name:'Norepinephrine (Levophed)',     amt:4,    vol:250, unit:'mcg/min',    lo:2,     hi:30,   step:[2,5,10,20,30]},
+ {name:'Epinephrine (Adrenalin)',       amt:4,    vol:250, unit:'mcg/min',    lo:1,     hi:10,   step:[1,2,4,8,10]},
+ {name:'Dopamine (Intropin)',           amt:400,  vol:250, unit:'mcg/kg/min', lo:2,     hi:20,   step:[2,5,10,15,20]},
+ {name:'Dobutamine (Dobutrex)',         amt:250,  vol:250, unit:'mcg/kg/min', lo:2.5,   hi:20,   step:[2.5,5,10,15,20]},
+ {name:'Phenylephrine (Neo-Synephrine)',amt:10,   vol:250, unit:'mcg/min',    lo:40,    hi:180,  step:[40,80,120,160,180]},
+ {name:'Nitroglycerin (Tridil)',        amt:50,   vol:250, unit:'mcg/min',    lo:5,     hi:200,  step:[5,20,50,100,200]},
+ {name:'Nicardipine (Cardene)',         amt:25,   vol:250, unit:'mg/h',       lo:5,     hi:15,   step:[5,7.5,10,12.5,15]},
+ {name:'Milrinone (Primacor)',          amt:20,   vol:100, unit:'mcg/kg/min', lo:0.125, hi:0.75, step:[0.125,0.25,0.375,0.5,0.75]},
+ {name:'Vasopressin (Vasostrict)',      amt:20,   vol:100, unit:'U/min',      lo:0.01,  hi:0.04, step:[0.01,0.02,0.03,0.04], units:true}
 ];
 var last='dose'; /* which side the user edited last */
 function drug(){ return DRUGS[$('dDrug').selectedIndex]; }
