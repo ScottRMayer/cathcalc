@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.11.2';
+CM.VERSION = '3.12.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -225,12 +225,17 @@ CM.setActiveCase = function(n){ n=+n; if(!(n>=1&&n<=CM.CASES)||n===ACTIVE) retur
    case the two are swapped, so nothing is ever lost — handy when cases get
    bumped for emergencies. Then follow the data to its new slot. */
 CM.moveCase = function(to){ to=+to; if(!(to>=1&&to<=CM.CASES)||to===ACTIVE) return;
-  try{ ['patient','contrast'].forEach(function(name){
-    var ka='cm:case'+ACTIVE+':'+name, kb='cm:case'+to+':'+name;
-    var va=localStorage.getItem(ka), vb=localStorage.getItem(kb);
-    if(vb!=null) localStorage.setItem(ka,vb); else localStorage.removeItem(ka);
-    if(va!=null) localStorage.setItem(kb,va); else localStorage.removeItem(kb);
-  }); }catch(e){}
+  try{
+    var pa='cm:case'+ACTIVE+':', pb='cm:case'+to+':', names={}, i, k;
+    for(i=localStorage.length-1;i>=0;i--){ k=localStorage.key(i);
+      if(k&&k.indexOf(pa)===0) names[k.slice(pa.length)]=1;
+      if(k&&k.indexOf(pb)===0) names[k.slice(pb.length)]=1; }
+    Object.keys(names).forEach(function(name){
+      var ka=pa+name, kb=pb+name, va=localStorage.getItem(ka), vb=localStorage.getItem(kb);
+      if(vb!=null) localStorage.setItem(ka,vb); else localStorage.removeItem(ka);
+      if(va!=null) localStorage.setItem(kb,va); else localStorage.removeItem(kb);
+    });
+  }catch(e){}
   CM.setActiveCase(to); };
 
 /* One-time cleanup + migration: purge legacy slot/handoff keys, and move any
@@ -254,9 +259,9 @@ function loadP(){
     if(!j) return Object.assign({},BLANK);
     var p=JSON.parse(j);
     if(p && p._ts && (Date.now()-p._ts)>STALE_MS){
-      try{
-        localStorage.removeItem(CM.storeKey('patient'));
-        localStorage.removeItem(CM.storeKey('contrast'));
+      try{ var pre=CM.storeKey('');
+        for(var si=localStorage.length-1;si>=0;si--){ var sk=localStorage.key(si);
+          if(sk && sk.indexOf(pre)===0) localStorage.removeItem(sk); }
       }catch(e2){}
       return Object.assign({},BLANK);
     }
@@ -268,7 +273,10 @@ function saveP(){ P._ts=Date.now(); try{ localStorage.setItem(CM.storeKey('patie
 CM.patient = function(){ return P; };
 CM.setPatient = function(k,v){ P[k]=v; saveP(); notify(); };
 CM.clearPatient = function(){ P=Object.assign({},BLANK);
-  try{ localStorage.removeItem(CM.storeKey('patient')); }catch(e){}
+  try{ var pre=CM.storeKey('');
+    for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i);
+      if(k && k.indexOf(pre)===0) localStorage.removeItem(k); }
+  }catch(e){}
   CM.setContrastUsed(0); fillPanel(); notify(); };
 
 CM.contrastUsed = function(){ var v=parseFloat(localStorage.getItem(CM.storeKey('contrast'))); return isNaN(v)?0:Math.max(0,v); };
@@ -320,6 +328,39 @@ function prefillShared(){
   Object.keys(map).forEach(function(f){ CM.setSegVal(f, map[f]); });
 }
 CM.prefillShared = prefillShared;
+
+/* ---- per-case, per-page persistence of tool-specific inputs & toggles ----
+   So values entered in a calculator stick when you leave and come back. Shared
+   fields (patient panel, comorbidity toggles, contrast tracker) are excluded —
+   they already persist via the shared patient state. */
+var SHARED_SEG={}, SHARED_INPUT={cUsed:1, mContrast:1, dDrug:1, dAmt:1, dVol:1, dDose:1, dRate:1};
+['mDm','dDm','mHypo','sSbp','mIabp','mChf','mAnemia','stemi','shock','pci','uCad',
+ 'dPrior','dSingle','dAcuity','sDha','sKil','zKil','diabetes','htn','anginaHx',
+ 'priorPCI','singleKidney','priorCIAKI','hypotension','chf','iabp','killip']
+ .forEach(function(f){ SHARED_SEG[f]=1; });
+function inShell(el){ return !el||!!(el.closest&&(el.closest('#shell-top')||el.closest('#shell-bottom'))); }
+function pageKey(){ return 'cm:case'+ACTIVE+':pg:'+(location.pathname.split('/').pop()||'index.html'); }
+function pgInputs(){ return [].slice.call(document.querySelectorAll('input[id],select[id]'))
+  .filter(function(el){ return !inShell(el)&&!SHARED_INPUT[el.id]; }); }
+function pgSegs(){ return [].slice.call(document.querySelectorAll('.seg[data-field]'))
+  .filter(function(g){ return !inShell(g)&&!SHARED_SEG[g.getAttribute('data-field')]; }); }
+function persistPage(){
+  var d={}; try{ d=JSON.parse(localStorage.getItem(pageKey())||'{}'); }catch(e){}
+  pgInputs().forEach(function(el){ var v=d['#'+el.id]; if(v!=null&&v!=='') el.value=v; });
+  pgSegs().forEach(function(g){ var v=d['seg:'+g.getAttribute('data-field')]; if(v!=null){
+    g.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); });
+    if(CM.a11ySync)CM.a11ySync(g); } });
+  function save(){ var o={};
+    pgInputs().forEach(function(el){ if(el.value!=='') o['#'+el.id]=el.value; });
+    pgSegs().forEach(function(g){ var on=g.querySelector('button.on'); if(on) o['seg:'+g.getAttribute('data-field')]=on.getAttribute('data-v'); });
+    try{ localStorage.setItem(pageKey(), JSON.stringify(o)); }catch(e){}
+  }
+  document.addEventListener('input',function(e){ if(!inShell(e.target)) save(); });
+  document.addEventListener('change',function(e){ if(!inShell(e.target)) save(); });
+  document.addEventListener('click',function(e){ var s=e.target.closest?e.target.closest('.seg'):null; if(s&&!inShell(s)) setTimeout(save,0); });
+  CM.pageSave=save;
+}
+CM.persistPage=persistPage;
 
 var listeners=[];
 function notify(){ renderSummary(); listeners.forEach(function(fn){ try{fn();}catch(e){console.error(e);} }); }
@@ -651,6 +692,7 @@ CM.init = function(opts){
 
   renderSummary();
   prefillShared();   /* seed this tool's toggles from the shared Intake data */
+  persistPage();     /* restore any tool inputs entered earlier for this case */
 
   /* error prompts are announced politely to screen readers */
   document.querySelectorAll('.err').forEach(function(el){

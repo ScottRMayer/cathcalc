@@ -122,6 +122,18 @@ $('dDose').addEventListener('input',function(){ last='dose'; render(); });
 $('dRate').addEventListener('input',function(){ last='rate'; render(); });
 CM.onChange(render);
 fillDrug();
+
+/* persist drips inputs across navigation (per case) */
+var DKEY='cm:case'+CM.activeCase()+':drips';
+try{ var sv=JSON.parse(localStorage.getItem(DKEY)||'null');
+  if(sv){ if(typeof sv.i==='number'&&sv.i>=0){ $('dDrug').selectedIndex=sv.i; fillDrug(); }
+    if(sv.amt)$('dAmt').value=sv.amt; if(sv.vol)$('dVol').value=sv.vol;
+    last=(sv.last==='rate')?'rate':'dose';
+    if(sv.dose)$('dDose').value=sv.dose; if(sv.rate)$('dRate').value=sv.rate;
+    render(); } }catch(e){}
+function dsave(){ try{ localStorage.setItem(DKEY,JSON.stringify({ i:$('dDrug').selectedIndex,
+  amt:$('dAmt').value, vol:$('dVol').value, dose:$('dDose').value, rate:$('dRate').value, last:last })); }catch(e){} }
+['dDrug','dAmt','dVol','dDose','dRate'].forEach(function(id){ $(id).addEventListener('input',dsave); $(id).addEventListener('change',dsave); });
 </script>
 </body>
 </html>
