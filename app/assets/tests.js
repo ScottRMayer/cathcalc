@@ -88,6 +88,11 @@ function CM_TESTS(F){
   t('Bleed: prior PCI decreases risk',
     F.cathPCIBleed({age:68,female:true,hgb:11,bmi:27,egfr:50,stemi:true,shock:false,dialysis:false,priorPCI:true})<exp1,
     true);
+  t('Bleed: breakdown terms sum to x and match risk', (function(){
+    var b=F.cathPCIBleedTerms({age:68,female:true,hgb:11,bmi:27,egfr:50,stemi:true,shock:false,dialysis:false,priorPCI:false});
+    var s=0; for(var i=0;i<b.terms.length;i++)s+=b.terms[i].logit;
+    return Math.abs(s-b.x)<1e-12 && Math.abs(b.risk-exp1)<1e-6 && b.terms.length===9;
+  })(), true);
 
   /* TIMI UA/NSTEMI */
   t('TIMI UA: all 7 = score 7', F.timiUA({age65:1,riskFactors3:1,knownCAD:1,asa7d:1,severeAngina:1,stDeviation:1,markers:1}).score, 7);

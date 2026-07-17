@@ -34,26 +34,72 @@
     <div class="cite">Simplified ACC NCDR CathPCI bleeding risk model. Decision support only.</div>
   </div>
 
+  <details class="ppanel" id="dbgPanel" style="display:none">
+    <summary>Calculation breakdown <span class="st">compare against the ACC tool line by line</span></summary>
+    <div class="pbody">
+      <p class="note" id="dbgDrift" style="margin-top:0"></p>
+      <table id="dbgTable" style="width:100%;border-collapse:collapse;font-size:.9rem"></table>
+      <div class="cite">Only <b>eGFR</b> and <b>BMI</b> are computed from your inputs — every other row maps 1:1 to what you enter. If a case differs from the ACC calculator, the gap almost always starts in one of those two rows. To confirm, enter eGFR and BMI <b>manually</b> in both tools and the results should match to the decimal.</div>
+    </div>
+  </details>
+
   <div id="shell-bottom"></div>
 </div>
 <script src="../assets/core.js?v=3.9.0"></script>
 <script>
 var $=CM.$, card=document.querySelector('.card');
+/* which eGFR band a value lands in — mirrors CM.F.cathPCIBleedTerms exactly */
+function bandOf(egfr,dial){
+  if(dial||egfr<29.99) return dial?'dialysis':'<30';
+  if(egfr>=45&&egfr<=59.99) return '45–59';
+  if(egfr>=30&&egfr<=44.99) return '30–44';
+  return '≥60';
+}
+function slog(v){ return (v>=0?'+':'−')+Math.abs(v).toFixed(4); }
 function render(){
-  var P=CM.patient(), d=CM.derived(), miss=[], bChip=$('bleedChip');
+  var P=CM.patient(), d=CM.derived(), miss=[], bChip=$('bleedChip'), dbg=$('dbgPanel');
   if(P.age==null)miss.push('age'); if(!P.sex)miss.push('sex'); if(P.hgb==null)miss.push('hemoglobin');
   if(d.bmi==null)miss.push('height/weight'); if(d.egfr==null&&!P.dial)miss.push('creatinine');
-  if(miss.length){ CM.setNum('bleed','—','neutral'); bChip.style.display='none';
+  if(miss.length){ CM.setNum('bleed','—','neutral'); bChip.style.display='none'; dbg.style.display='none';
     $('bleedErr').textContent='Enter '+miss.join(', ')+'.'; return; }
   $('bleedErr').textContent='';
-  var risk=CM.F.cathPCIBleed({age:P.age, female:d.female, hgb:P.hgb, bmi:d.bmi,
+  var p={age:P.age, female:d.female, hgb:P.hgb, bmi:d.bmi,
     egfr:(d.egfr==null?999:d.egfr), dialysis:P.dial,
-    stemi:CM.segYes('stemi',card), shock:CM.segYes('shock',card), priorPCI:CM.segYes('pci',card)});
+    stemi:CM.segYes('stemi',card), shock:CM.segYes('shock',card), priorPCI:CM.segYes('pci',card)};
+  var bd=CM.F.cathPCIBleedTerms(p), risk=bd.risk;
   var cls=risk<3.3?'good':(risk<10?'warn':'bad');
   CM.setNum('bleed',risk.toFixed(1)+'%',cls);
   bChip.style.display=''; bChip.className='chip '+cls;
   bChip.textContent=risk<3.3?'Low':(risk<10?'Elevated':'High');
   CM.announce('Bleeding risk '+risk.toFixed(1)+' percent');
+  /* ---- per-variable breakdown ---- */
+  var h='<tr style="text-align:left;color:var(--muted)">'
+    +'<th style="padding:5px 6px;font-weight:700">Variable</th>'
+    +'<th style="padding:5px 6px;font-weight:700">Input used</th>'
+    +'<th style="padding:5px 6px;font-weight:700;text-align:right">Logit</th></tr>';
+  bd.terms.forEach(function(tm){
+    var computed=(tm.label==='BMI'||tm.label==='Renal (eGFR)');
+    h+='<tr style="border-top:1px solid var(--line)'+(computed?';font-weight:700':'')+'">'
+      +'<td style="padding:5px 6px">'+tm.label+(computed?' *':'')+'</td>'
+      +'<td style="padding:5px 6px;color:var(--muted)">'+(tm.input||'—')+'</td>'
+      +'<td style="padding:5px 6px;text-align:right;font-variant-numeric:tabular-nums">'+slog(tm.logit)+'</td></tr>';
+  });
+  h+='<tr style="border-top:2px solid var(--line);font-weight:800"><td style="padding:5px 6px">Total logit (x)</td><td></td>'
+    +'<td style="padding:5px 6px;text-align:right;font-variant-numeric:tabular-nums">'+slog(bd.x)+'</td></tr>';
+  h+='<tr style="font-weight:800"><td style="padding:5px 6px">Risk = 100·eˣ ⁄ (1+eˣ)</td><td></td>'
+    +'<td style="padding:5px 6px;text-align:right">'+risk.toFixed(2)+'%</td></tr>';
+  $('dbgTable').innerHTML=h;
+  /* ---- drift check on the two computed inputs (* rows above) ---- */
+  var drift=[];
+  if(!P.dial && d.egfr!=null){
+    var raw=d.egfr, rb=bandOf(raw,false), rr=bandOf(Math.round(raw),false);
+    drift.push('<b>eGFR</b> '+raw.toFixed(1)+' → your band '+rb
+      +(rr!==rb ? ' &nbsp;⚠ if the ACC uses the rounded eGFR ('+Math.round(raw)+') it falls in band '+rr+' — <b>this case will differ</b>'
+                : ' (rounds to '+Math.round(raw)+', same band — no drift)'));
+  }
+  drift.push('<b>BMI</b> '+d.bmi.toFixed(2)+' used at full precision — make the ACC tool show the same decimals, or enter BMI manually in both.');
+  $('dbgDrift').innerHTML=drift.join('<br>');
+  dbg.style.display='';
 }
 CM.init({title:'Bleeding risk (ACC CathPCI)', copy:function(){
   return 'Clara Maass CMC — Bleeding risk: '+$('bleed').textContent+' '+($('bleedChip').textContent?('('+$('bleedChip').textContent+')'):'')+' ('+new Date().toLocaleString('en-US')+')';

@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var CM = window.CM = {};
-CM.VERSION = '3.12.0';
+CM.VERSION = '3.13.0';
 CM.REVIEWED = '2026-07-03'; /* formulas last reviewed */
 
 /* ============================ FORMULAS (pure) ============================ */
@@ -28,20 +28,31 @@ F.maxContrast = function(kg, scrMgdl, egfr, mult){
   var w=2.5*kg/scrMgdl, g=mult*egfr;
   return {wt:w, gfr:g, max:Math.min(300,w,g)};
 };
-/* ACC CathPCI simplified post-PCI bleeding model (unchanged coefficients). */
-F.cathPCIBleed = function(p){
-  var x=-0.0884;
-  x+=0.0155*Math.min(p.age,70)+0.02097*Math.max(0,p.age-70);
-  x+=p.stemi?0.9327:0;
-  x+=-0.3474*Math.min(p.hgb,13)+0.03236*Math.max(0,p.hgb-13);
-  x+=p.female?0.4403:0; x+=p.shock?1.9807:0;
-  x+=-0.04266*Math.min(p.bmi,30)+-0.00201*Math.max(0,p.bmi-30);
-  if(p.egfr<29.99||p.dialysis)x+=0.6309;
-  else if(p.egfr>=45&&p.egfr<=59.99)x+=0.3346;
-  else if(p.egfr>=30&&p.egfr<=44.99)x+=0.5016;
-  x+=p.priorPCI?-0.2131:0;
-  return 100*Math.exp(x)/(1+Math.exp(x));
+/* ACC CathPCI simplified post-PCI bleeding model (unchanged coefficients).
+   cathPCIBleedTerms is the single source of truth: it returns each variable's
+   logit contribution (with the input value used) so the UI can show a
+   line-by-line breakdown for parity checks against the ACC calculator.
+   cathPCIBleed just returns the risk % it implies. Summation order preserved. */
+F.cathPCIBleedTerms = function(p){
+  var t=[], add=function(label,logit,input){ t.push({label:label,logit:logit,input:input}); };
+  add('Intercept',        -0.0884, '');
+  add('Age',              0.0155*Math.min(p.age,70)+0.02097*Math.max(0,p.age-70), p.age+' yr');
+  add('STEMI',            p.stemi?0.9327:0, p.stemi?'yes':'no');
+  add('Hemoglobin',       -0.3474*Math.min(p.hgb,13)+0.03236*Math.max(0,p.hgb-13), (p.hgb!=null?p.hgb:'—')+' g/dL');
+  add('Female',           p.female?0.4403:0, p.female?'yes':'no');
+  add('Cardiogenic shock',p.shock?1.9807:0, p.shock?'yes':'no');
+  add('BMI',              -0.04266*Math.min(p.bmi,30)+-0.00201*Math.max(0,p.bmi-30), (p.bmi!=null?p.bmi.toFixed(2):'—'));
+  var eLogit, eBand;
+  if(p.egfr<29.99||p.dialysis){ eLogit=0.6309; eBand=p.dialysis?'dialysis':'<30'; }
+  else if(p.egfr>=45&&p.egfr<=59.99){ eLogit=0.3346; eBand='45–59'; }
+  else if(p.egfr>=30&&p.egfr<=44.99){ eLogit=0.5016; eBand='30–44'; }
+  else { eLogit=0; eBand='≥60'; }
+  add('Renal (eGFR)',     eLogit, eBand);
+  add('Prior PCI',        p.priorPCI?-0.2131:0, p.priorPCI?'yes':'no');
+  var x=0; for(var i=0;i<t.length;i++) x+=t[i].logit;
+  return {terms:t, x:x, risk:100*Math.exp(x)/(1+Math.exp(x)), egfrBand:eBand};
 };
+F.cathPCIBleed = function(p){ return F.cathPCIBleedTerms(p).risk; };
 /* Mehran CI-AKI (classic 2004 model). */
 F.mehran = function(o){
   var s=0;
